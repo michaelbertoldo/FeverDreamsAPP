@@ -1,7 +1,7 @@
 // src/navigation/AuthNavigator.tsx
 import React from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
-import WelcomeScreen from '../screens/WelcomeScreen';
+import WelcomeScreen from '../screens/welcomeScreen';
 import SignInScreen from '../screens/SignInScreen';
 import SelfieScreen from '../screens/SelfieScreen';
 import ProfileScreen from '../screens/ProfileScreen';

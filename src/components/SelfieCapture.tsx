@@ -1,7 +1,7 @@
 // src/components/SelfieCapture.tsx
-import React, { useState, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Camera } from 'expo-camera';
+import React, { useState, useRef, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import { Image } from 'expo-image';
 import Animated, { 
@@ -10,19 +10,23 @@ import Animated, {
   withSpring 
 } from 'react-native-reanimated';
 
-export const SelfieCapture = ({ onCapture }) => {
-  const [hasPermission, setHasPermission] = useState(null);
-  const [selfieUri, setSelfieUri] = useState(null);
-  const cameraRef = useRef(null);
+interface SelfieCaptureProps {
+  onCapture: (uri: string) => void;
+}
+
+export const SelfieCapture: React.FC<SelfieCaptureProps> = ({ onCapture }) => {
+  const [permission, requestPermission] = useCameraPermissions();
+  const [selfieUri, setSelfieUri] = useState<string | null>(null);
+  const [facing, setFacing] = useState<CameraType>('front');
+  const cameraRef = useRef<CameraView>(null);
   const faceOutlineScale = useSharedValue(1);
   
-  // Request camera permissions on mount
-  React.useEffect(() => {
-    (async () => {
-      const { status } = await Camera.requestCameraPermissionsAsync();
-      setHasPermission(status === 'granted');
-    })();
-  }, []);
+  // Request permissions on mount
+  useEffect(() => {
+    if (!permission?.granted) {
+      requestPermission();
+    }
+  }, [permission, requestPermission]);
   
   // Animated face outline style
   const outlineStyle = useAnimatedStyle(() => {
@@ -40,31 +44,49 @@ export const SelfieCapture = ({ onCapture }) => {
   // Take picture function
   const takePicture = async () => {
     if (cameraRef.current) {
-      faceOutlineScale.value = 0.9;
-      setTimeout(() => {
-        faceOutlineScale.value = 1;
-      }, 100);
-      
-      const photo = await cameraRef.current.takePictureAsync({
-        quality: 0.8,
-        skipProcessing: false,
-      });
-      
-      setSelfieUri(photo.uri);
+      try {
+        faceOutlineScale.value = 0.9;
+        setTimeout(() => {
+          faceOutlineScale.value = 1;
+        }, 100);
+        
+        const photo = await cameraRef.current.takePictureAsync({
+          quality: 0.8,
+        });
+        
+        if (photo) {
+          setSelfieUri(photo.uri);
+        }
+      } catch (error) {
+        console.error('Error taking picture:', error);
+        Alert.alert('Error', 'Failed to take picture. Please try again.');
+      }
     }
   };
   
   // Pick from library function
   const pickImage = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
-    
-    if (!result.canceled) {
-      setSelfieUri(result.assets[0].uri);
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      
+      if (status !== 'granted') {
+        Alert.alert('Permission Required', 'Sorry, we need camera roll permissions to select a photo.');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+      
+      if (!result.canceled && result.assets && result.assets[0]) {
+        setSelfieUri(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error('Error picking image:', error);
+      Alert.alert('Error', 'Failed to select image. Please try again.');
     }
   };
   
@@ -76,12 +98,23 @@ export const SelfieCapture = ({ onCapture }) => {
   };
   
   // Render camera permission check
-  if (hasPermission === null) {
-    return <View style={styles.container}><Text>Requesting camera permission...</Text></View>;
+  if (!permission) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.permissionText}>Requesting camera permission...</Text>
+      </View>
+    );
   }
   
-  if (hasPermission === false) {
-    return <View style={styles.container}><Text>No access to camera. Please enable camera permissions.</Text></View>;
+  if (!permission.granted) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.permissionText}>Camera permission is required to take selfies.</Text>
+        <TouchableOpacity style={styles.button} onPress={requestPermission}>
+          <Text style={styles.buttonText}>Grant Permission</Text>
+        </TouchableOpacity>
+      </View>
+    );
   }
   
   return (
@@ -102,11 +135,10 @@ export const SelfieCapture = ({ onCapture }) => {
       ) : (
         // Camera view for capturing
         <View style={styles.cameraContainer}>
-          <Camera
+          <CameraView
             ref={cameraRef}
             style={styles.camera}
-            type={Camera.Constants.Type.front}
-            ratio="1:1"
+            facing={facing}
           >
             <View style={styles.cameraContent}>
               <Animated.View style={outlineStyle} />
@@ -114,7 +146,7 @@ export const SelfieCapture = ({ onCapture }) => {
                 Position your face within the outline
               </Text>
             </View>
-          </Camera>
+          </CameraView>
           <View style={styles.buttonRow}>
             <TouchableOpacity style={styles.button} onPress={pickImage}>
               <Text style={styles.buttonText}>Choose from Library</Text>
@@ -192,5 +224,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.5)',
     padding: 10,
     borderRadius: 10,
-  }
+  },
+  permissionText: {
+    color: 'white',
+    fontSize: 16,
+    textAlign: 'center',
+    margin: 20,
+  },
 });

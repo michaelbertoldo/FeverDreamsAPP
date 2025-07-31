@@ -1,32 +1,57 @@
 {
   "expo": {
-    "name": "ai-party-game-ios",
-    "slug": "ai-party-game-ios",
+    "name": "FeverDreams",
+    "slug": "feverdreams-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#000000"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.feverdreams.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "This app uses the camera to capture selfies for AI image generation.",
+        "NSPhotoLibraryUsageDescription": "This app accesses your photo library to select selfies and save generated images.",
+        "NSPhotoLibraryAddUsageDescription": "This app saves generated images to your photo library."
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#000000"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "package": "com.feverdreams.app",
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow FeverDreams to access your camera to take selfies for AI image generation."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow FeverDreams to access your photos to select selfies for AI image generation."
+        }
+      ],
+      "expo-apple-authentication"
     ]
   }
 }

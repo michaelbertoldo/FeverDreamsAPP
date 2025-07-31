@@ -6,7 +6,8 @@
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "eject": "expo eject"
   },
   "dependencies": {
     "@react-navigation/native": "^7.1.16",
@@ -16,6 +17,7 @@
     "expo-apple-authentication": "~7.2.4",
     "expo-auth-session": "~6.2.1",
     "expo-camera": "~16.1.11",
+    "expo-image": "~1.15.4",
     "expo-image-picker": "~16.1.4",
     "expo-secure-store": "~14.2.3",
     "expo-status-bar": "~2.2.3",
@@ -25,12 +27,13 @@
     "react-native-reanimated": "~3.17.4",
     "react-redux": "^9.2.0",
     "react-native-screens": "~4.11.1",
-    "react-native-safe-area-context": "5.4.0",
+    "react-native-safe-area-context": "~5.4.0",
     "react-native-gesture-handler": "~2.24.0"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
     "@types/react": "~19.0.10",
+    "@types/react-native": "~0.73.0",
     "typescript": "~5.8.3"
   },
   "private": true

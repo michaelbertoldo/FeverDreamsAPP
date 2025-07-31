@@ -1,6 +1,26 @@
 // src/store/slices/authSlice.ts
-import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { signInWithApple, createUserProfile } from '../../services/authService';
+
+interface User {
+  uid: string;
+  email: string | null;
+  displayName: string;
+}
+
+interface AuthState {
+  user: User | null;
+  loading: boolean;
+  error: string | null;
+  selfieUploaded: boolean;
+}
+
+const initialState: AuthState = {
+  user: null,
+  loading: false,
+  error: null,
+  selfieUploaded: false,
+};
 
 export const appleSignIn = createAsyncThunk(
   'auth/appleSignIn',
@@ -21,27 +41,25 @@ export const appleSignIn = createAsyncThunk(
         email: user.email,
         displayName: user.displayName || 'Player',
       };
-    } catch (error) {
-      return rejectWithValue(error.message);
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Sign in failed');
     }
   }
 );
 
 const authSlice = createSlice({
   name: 'auth',
-  initialState: {
-    user: null,
-    loading: false,
-    error: null,
-    selfieUploaded: false,
-  },
+  initialState,
   reducers: {
-    setSelfieUploaded: (state, action) => {
+    setSelfieUploaded: (state, action: PayloadAction<boolean>) => {
       state.selfieUploaded = action.payload;
     },
     logout: (state) => {
       state.user = null;
       state.selfieUploaded = false;
+    },
+    clearError: (state) => {
+      state.error = null;
     }
   },
   extraReducers: (builder) => {
@@ -56,10 +74,10 @@ const authSlice = createSlice({
       })
       .addCase(appleSignIn.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload;
+        state.error = action.payload as string;
       });
   }
 });
 
-export const { setSelfieUploaded, logout } = authSlice.actions;
+export const { setSelfieUploaded, logout, clearError } = authSlice.actions;
 export default authSlice.reducer;
