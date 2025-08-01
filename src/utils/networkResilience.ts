@@ -28,29 +28,35 @@ export const getNetworkState = async (): Promise<NetInfoState> => {
   } catch (error) {
     console.error('Error getting network state:', error);
     
-    // Return default state if error
+    // Return default state if error - Fixed: properly typed return
     return {
-      type: 'unknown',
+      type: 'unknown' as any,
       isConnected: true,
       isInternetReachable: true,
       details: null,
-    };
+    } as NetInfoState;
   }
 };
 
 // Set up network monitoring
-export const setupNetworkMonitoring = (): () => void => {
-  // Subscribe to network info updates
-  const unsubscribe = NetInfo.addEventListener((state) => {
-    // Update cache
-    cachedNetworkState = state;
-    lastNetworkCheck = Date.now();
+export const setupNetworkMonitoring = (): (() => void) => {
+  try {
+    // Subscribe to network info updates
+    const unsubscribe = NetInfo.addEventListener((state) => {
+      // Update cache
+      cachedNetworkState = state;
+      lastNetworkCheck = Date.now();
+      
+      // Log network changes
+      console.log('Network state changed:', state);
+    });
     
-    // Log network changes
-    console.log('Network state changed:', state);
-  });
-  
-  return unsubscribe;
+    return unsubscribe;
+  } catch (error) {
+    console.error('Error setting up network monitoring:', error);
+    // Return a no-op function if setup fails
+    return () => {};
+  }
 };
 
 // Check if we can perform heavy network operations
@@ -60,8 +66,8 @@ export const canPerformHeavyNetworkOperations = async (): Promise<boolean> => {
     
     // Only allow heavy operations on WiFi with internet
     return (
-      state.isConnected &&
-      state.isInternetReachable &&
+      state.isConnected === true &&
+      state.isInternetReachable === true &&
       state.type === 'wifi'
     );
   } catch (error) {

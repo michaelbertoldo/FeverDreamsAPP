@@ -55,15 +55,36 @@ export const getMemoryInfo = async (): Promise<{
   }
 };
 
-// Get device performance tier
+// Get device performance tier - Fixed deviceYearClass issue
 export const getDevicePerformanceTier = async (): Promise<'low' | 'medium' | 'high'> => {
   try {
     // Get device info
     const deviceType = Device.deviceType;
-    const deviceYear = await Device.deviceYearClass;
     
     // Check if device is a tablet
     const isTablet = deviceType === Device.DeviceType.TABLET;
+    
+    // Get device year class if available, otherwise estimate based on other factors
+    let deviceYear: number | null = null;
+    
+    try {
+      // Try to get deviceYearClass if it exists
+      deviceYear = (Device as any).deviceYearClass;
+    } catch (e) {
+      // deviceYearClass not available, estimate based on platform
+      console.log('deviceYearClass not available, using fallback estimation');
+    }
+    
+    // If we can't get device year, estimate based on device type and platform
+    if (!deviceYear) {
+      if (Platform.OS === 'ios') {
+        // For iOS, assume newer devices (most iOS devices in use are relatively recent)
+        deviceYear = 2018;
+      } else {
+        // For Android or unknown, be more conservative
+        deviceYear = 2016;
+      }
+    }
     
     // Determine performance tier based on device year and type
     if (deviceYear >= 2019 || isTablet) {

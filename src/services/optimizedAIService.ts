@@ -4,6 +4,7 @@ import { optimizeImage, getCachedImage } from './optimizedImageService';
 import { getUserSelfie } from './selfieService';
 import { getNetworkState } from '../utils/networkResilience';
 import { getBatteryLevel } from '../utils/deviceInfo';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Generation quality presets
 const QUALITY_PRESETS = {
