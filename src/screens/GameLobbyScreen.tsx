@@ -1,4 +1,4 @@
-// src/screens/GameLobbyScreen.tsx
+// src/screens/GameLobbyScreen.tsx - Fixed clipboard import
 import React, { useState, useEffect } from 'react';
 import { 
   View, 
@@ -9,6 +9,7 @@ import {
   Share,
   Alert
 } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import { useNavigation } from '@react-navigation/native';
 import { useSelector, useDispatch } from 'react-redux';
 import Animated, { 
@@ -87,10 +88,14 @@ export default function GameLobbyScreen() {
   };
   
   // Copy join code to clipboard
-  const handleCopyCode = () => {
-    Clipboard.setString(joinCode);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const handleCopyCode = async () => {
+    try {
+      await Clipboard.setStringAsync(joinCode || '');
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (error) {
+      console.error('Error copying to clipboard:', error);
+    }
   };
   
   // Toggle ready status
@@ -132,13 +137,13 @@ export default function GameLobbyScreen() {
   };
   
   // Render player item
-  const renderPlayerItem = ({ item }) => {
+  const renderPlayerItem = ({ item, index }: { item: any; index: number }) => {
     const isCurrentUser = item.id === userId;
     
     return (
       <AnimatedCard 
         animation="slide" 
-        delay={200 * item.index}
+        delay={200 * index}
         style={styles.playerCard}
       >
         <View style={styles.playerRow}>
@@ -215,8 +220,8 @@ export default function GameLobbyScreen() {
         </View>
         
         <FlatList
-          data={Object.values(players).map((player, index) => ({ ...player, index }))}
-          keyExtractor={(item) => item.id}
+          data={Object.values(players)}
+          keyExtractor={(item: any) => item.id}
           renderItem={renderPlayerItem}
           contentContainerStyle={styles.playersList}
           showsVerticalScrollIndicator={false}
@@ -233,7 +238,7 @@ export default function GameLobbyScreen() {
             variant="primary"
             size="large"
             onPress={handleStartGame}
-            disabled={Object.keys(players).length < 2 || !Object.values(players).every(p => p.isReady)}
+            disabled={Object.keys(players).length < 2 || !Object.values(players).every((p: any) => p.isReady)}
             style={styles.startButton}
           />
         ) : (

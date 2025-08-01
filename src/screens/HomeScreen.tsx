@@ -1,21 +1,31 @@
-// src/screens/WelcomeScreen.tsx (note the capital W)
+// src/screens/HomeScreen.tsx
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
 
-const WelcomeScreen = () => {
-  const navigation = useNavigation();
+type HomeScreenNavigationProp = StackNavigationProp<any>;
+
+const HomeScreen = () => {
+  const navigation = useNavigation<HomeScreenNavigationProp>();
+
+  const handleStartPlaying = () => {
+    // Navigate to game creation/joining flow
+    console.log('Create/Join game pressed');
+    // You can add navigation logic here later
+    // navigation.navigate('GameLobby');
+  };
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>AI Party Game</Text>
-      <Text style={styles.subtitle}>Create hilarious AI images with friends!</Text>
+      <Text style={styles.subtitle}>Ready to have some fun?</Text>
       
       <TouchableOpacity 
         style={styles.button}
-        onPress={() => navigation.navigate('SignIn' as never)}
+        onPress={handleStartPlaying}
       >
-        <Text style={styles.buttonText}>Get Started</Text>
+        <Text style={styles.buttonText}>Start Playing</Text>
       </TouchableOpacity>
     </View>
   );
@@ -30,16 +40,15 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   title: {
-    fontSize: 48,
+    fontSize: 32,
     fontWeight: 'bold',
-    color: '#FF3B30',
+    color: 'white',
     marginBottom: 10,
   },
   subtitle: {
-    fontSize: 20,
-    color: 'white',
+    fontSize: 18,
+    color: '#ccc',
     marginBottom: 50,
-    textAlign: 'center',
   },
   button: {
     backgroundColor: '#FF3B30',
@@ -54,4 +63,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default WelcomeScreen;
+export default HomeScreen;

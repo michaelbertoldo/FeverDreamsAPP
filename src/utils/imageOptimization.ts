@@ -2,6 +2,7 @@
 import * as FileSystem from 'expo-file-system';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { Platform } from 'react-native';
+import { Image } from 'react-native';
 
 // Cache generated images locally
 export const cacheImage = async (url: string): Promise<string> => {
@@ -26,8 +27,12 @@ export const cacheImage = async (url: string): Promise<string> => {
 // Optimize image for display
 export const optimizeImage = async (uri: string, width: number = 600): Promise<string> => {
   try {
+    // Check if it's a local file - handle null documentDirectory
+    const documentDirectory = FileSystem.documentDirectory || '';
+    const isLocalFile = uri.startsWith('file://') || uri.startsWith(documentDirectory);
+    
     // Only optimize if it's a local file
-    if (!uri.startsWith('file://') && !uri.startsWith(FileSystem.documentDirectory)) {
+    if (!isLocalFile) {
       return uri;
     }
     

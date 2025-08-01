@@ -88,12 +88,11 @@ export const AnimatedCard: React.FC<AnimatedCardProps> = ({
     return () => clearTimeout(timeout);
   }, []);
   
-  // Animated styles
   const animatedStyle = useAnimatedStyle(() => {
-    const rotate = interpolate(
+    const rotateYDegrees = interpolate(
       rotateY.value,
       [0, 90],
-      ['0deg', '90deg'],
+      [0, 90],  // Use numbers instead of strings
       Extrapolate.CLAMP
     );
     
@@ -103,7 +102,7 @@ export const AnimatedCard: React.FC<AnimatedCardProps> = ({
         { translateY: translateY.value },
         { translateX: translateX.value },
         { scale: scale.value },
-        { rotateY: rotate }
+        { rotateY: `${rotateYDegrees}deg` }  // Convert to string here
       ]
     };
   });

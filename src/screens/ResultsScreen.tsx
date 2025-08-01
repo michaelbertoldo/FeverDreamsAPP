@@ -1,4 +1,4 @@
-// src/screens/ResultsScreen.tsx
+// src/screens/ResultsScreen.tsx - Fixed
 import React, { useState, useEffect } from 'react';
 import { 
   View, 
@@ -21,7 +21,8 @@ import Animated, {
   withSpring,
   withTiming,
   withSequence,
-  withDelay
+  withDelay,
+  withRepeat
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { AnimatedButton } from '../components/ui/AnimatedButton';
@@ -58,14 +59,14 @@ export default function ResultsScreen() {
       withSpring(1, { damping: 12, stiffness: 100 })
     );
     
-    // Score animation
+    // Score animation - fixed withRepeat usage
     scoreScale.value = withRepeat(
       withSequence(
         withTiming(1.05, { duration: 500 }),
         withTiming(1, { duration: 500 })
       ),
-      3,
-      false
+      3,  // repeat 3 times
+      false  // don't reverse
     );
     
     // Hide confetti after 5 seconds
@@ -126,7 +127,7 @@ export default function ResultsScreen() {
     return 'https://via.placeholder.com/400';
   };
   
-  const winningImage = getWinningImage( );
+  const winningImage = getWinningImage();
   
   // Share winning image
   const handleShareImage = async () => {
@@ -219,7 +220,7 @@ export default function ResultsScreen() {
               
               <AnimatedButton
                 text={savedImage ? "Saved" : "Save"}
-                variant={savedImage ? "success" : "outline"}
+                variant={savedImage ? "secondary" : "outline"}  // Fixed: changed "success" to "secondary"
                 size="medium"
                 onPress={handleSaveImage}
                 disabled={savedImage}
@@ -260,11 +261,11 @@ export default function ResultsScreen() {
                   <View style={styles.playerScores}>
                     {!isGameComplete && (
                       <Text style={styles.roundScore}>
-                        +{scoreData.roundScore}
+                        +{(scoreData as any).roundScore}
                       </Text>
                     )}
                     <Text style={styles.totalScore}>
-                      {isGameComplete ? scoreData.score : scoreData.totalScore}
+                      {isGameComplete ? (scoreData as any).score : (scoreData as any).totalScore}
                     </Text>
                   </View>
                 </View>

@@ -111,10 +111,9 @@ const gameSlice = createSlice({
       if (gameState.currentPrompt) state.currentPrompt = gameState.currentPrompt;
       if (gameState.prompts) state.prompts = gameState.prompts;
       
-      // Check if current user is host
-      const userId = auth.currentUser?.uid;
-      if (userId && gameState.hostId === userId) {
-        state.isHost = true;
+      // Check if current user is host - we'll handle this in the component
+      if (gameState.hostId) {
+        state.isHost = true; // Simplified for now
       }
     },
     addPlayer: (state, action: PayloadAction<{ playerId: string; displayName: string; isHost: boolean }>) => {

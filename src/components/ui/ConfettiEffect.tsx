@@ -12,7 +12,7 @@ import Animated, {
   cancelAnimation,
   runOnJS
 } from 'react-native-reanimated';
-import { colors } from '../../theme';
+import { colors as themeColors } from '../../theme';
 
 const { width, height } = Dimensions.get('window');
 
@@ -133,12 +133,12 @@ export const ConfettiEffect: React.FC<ConfettiEffectProps> = ({
   count = 50,
   duration = 3000,
   colors = [
-    colors.primary,
-    colors.secondary,
-    colors.tertiary,
-    colors.success,
-    colors.warning,
-    colors.info
+    themeColors.primary,    // Fixed: use themeColors instead of colors
+    themeColors.secondary,
+    themeColors.tertiary,
+    themeColors.success,
+    themeColors.warning,
+    themeColors.info
   ],
   onComplete
 }) => {
@@ -155,7 +155,7 @@ export const ConfettiEffect: React.FC<ConfettiEffectProps> = ({
     }, duration);
     
     return () => clearTimeout(timeout);
-  }, []);
+  }, [count, duration, onComplete]);
   
   const handlePieceComplete = () => {
     completedPieces.current += 1;

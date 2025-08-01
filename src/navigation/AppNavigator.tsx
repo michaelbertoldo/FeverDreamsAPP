@@ -21,6 +21,8 @@ import GameLobbyScreen from '../screens/GameLobbyScreen';
 import PromptScreen from '../screens/PromptScreen';
 import VotingScreen from '../screens/VotingScreen';
 import ResultsScreen from '../screens/ResultsScreen';
+import SubmitImageScreen from '../screens/SubmitImageScreen';
+import WaitingForVotesScreen from '../screens/WaitingForVotesScreen';
 
 import { RootState } from '../store';
 import { colors, navigationTheme } from '../theme';
@@ -56,8 +58,8 @@ const MainTabNavigator = () => {
         },
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.text.tertiary,
-        tabBarIcon: ({ focused, color, size }) => {
-          let iconName;
+        tabBarIcon: ({ focused, color, size }: { focused: boolean; color: string; size: number }) => {
+          let iconName: keyof typeof Ionicons.glyphMap;
           
           if (route.name === 'Home') {
             iconName = focused ? 'home' : 'home-outline';
@@ -65,6 +67,8 @@ const MainTabNavigator = () => {
             iconName = focused ? 'person' : 'person-outline';
           } else if (route.name === 'Gallery') {
             iconName = focused ? 'images' : 'images-outline';
+          } else {
+            iconName = 'help-outline'; // fallback icon
           }
           
           return <Ionicons name={iconName} size={size} color={color} />;
@@ -78,7 +82,7 @@ const MainTabNavigator = () => {
   );
 };
 
-// Game Navigator
+// Game Navigator - includes all game-related screens
 const GameNavigator = () => {
   return (
     <Stack.Navigator
@@ -89,6 +93,8 @@ const GameNavigator = () => {
     >
       <Stack.Screen name="GameLobby" component={GameLobbyScreen} />
       <Stack.Screen name="Prompt" component={PromptScreen} />
+      <Stack.Screen name="SubmitImage" component={SubmitImageScreen} />
+      <Stack.Screen name="WaitingForVotes" component={WaitingForVotesScreen} />
       <Stack.Screen name="Voting" component={VotingScreen} />
       <Stack.Screen name="Results" component={ResultsScreen} />
     </Stack.Navigator>
@@ -98,7 +104,7 @@ const GameNavigator = () => {
 // Root Navigator
 const AppNavigator = () => {
   const { user, selfieUploaded } = useSelector((state: RootState) => state.auth);
-  const { gameId, status } = useSelector((state: RootState) => state.game);
+  const { gameId } = useSelector((state: RootState) => state.game);
   
   // Determine which navigator to show
   const getActiveNavigator = () => {

@@ -1,4 +1,4 @@
-// src/screens/PromptScreen.tsx
+// src/screens/PromptScreen.tsx - Fixed missing gameId
 import React, { useState, useEffect } from 'react';
 import { 
   View, 
@@ -7,16 +7,13 @@ import {
   SafeAreaView,
   KeyboardAvoidingView,
   Platform,
-  TextInput,
   TouchableWithoutFeedback,
   Keyboard
 } from 'react-native';
 import { useSelector } from 'react-redux';
 import Animated, { 
   FadeIn, 
-  FadeOut, 
   SlideInUp,
-  SlideOutDown,
   useSharedValue,
   useAnimatedStyle,
   withSpring,
@@ -25,7 +22,6 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { ImageGenerator } from '../components/ImageGenerator';
-import { AnimatedButton } from '../components/ui/AnimatedButton';
 import { AnimatedCard } from '../components/ui/AnimatedCard';
 import { RootState } from '../store';
 import { colors, typography, spacing, borderRadius } from '../theme';
@@ -36,6 +32,7 @@ export default function PromptScreen() {
   
   // Get current prompt data from Redux
   const { 
+    gameId,
     currentPromptData: { promptId, promptText, isAssigned },
     currentRound
   } = useSelector((state: RootState) => state.game);
@@ -150,17 +147,18 @@ export default function PromptScreen() {
             <Animated.View style={promptStyle}>
               <AnimatedCard animation="bounce" style={styles.promptCard}>
                 <Text style={styles.promptLabel}>YOUR PROMPT</Text>
-                <Text style={styles.promptText}>{promptText}</Text>
+                <Text style={styles.promptText}>{promptText || 'Loading prompt...'}</Text>
               </AnimatedCard>
             </Animated.View>
             
             {isAssigned ? (
               <ImageGenerator
-                gameId={gameId}
-                promptId={promptId}
-                promptText={promptText}
+                gameId={gameId || ''}
+                promptId={promptId || ''}
+                promptText={promptText || ''}
                 onImageGenerated={(imageUrl) => {
                   // Handle image generation completion
+                  console.log('Image generated:', imageUrl);
                 }}
               />
             ) : (

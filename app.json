@@ -1,54 +1,46 @@
+
 {
   "expo": {
-    "name": "FeverDreams",
-    "slug": "feverdreams-app",
+    "name": "AI Party Game",
+    "slug": "ai-party-game",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
-    "newArchEnabled": true,
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/splash.png",
       "resizeMode": "contain",
       "backgroundColor": "#000000"
     },
+    "updates": {
+      "fallbackToCacheTimeout": 0
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.feverdreams.app",
+      "bundleIdentifier": "com.yourcompany.aipartygame",
+      "buildNumber": "1",
       "infoPlist": {
         "NSCameraUsageDescription": "This app uses the camera to capture selfies for AI image generation.",
         "NSPhotoLibraryUsageDescription": "This app accesses your photo library to select selfies and save generated images.",
-        "NSPhotoLibraryAddUsageDescription": "This app saves generated images to your photo library."
+        "NSPhotoLibraryAddUsageDescription": "This app saves generated images to your photo library.",
+        "NSMicrophoneUsageDescription": "This app uses the microphone for voice chat features.",
+        "UIBackgroundModes": ["remote-notification"]
       }
     },
-    "android": {
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#000000"
-      },
-      "edgeToEdgeEnabled": true,
-      "package": "com.feverdreams.app",
-      "permissions": [
-        "CAMERA",
-        "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE"
-      ]
-    },
-    "web": {
-      "favicon": "./assets/favicon.png"
-    },
     "plugins": [
-      "expo-secure-store",
-      [
-        "expo-camera",
-        {
-          "cameraPermission": "Allow FeverDreams to access your camera to take selfies for AI image generation."
-        }
-      ],
       [
         "expo-image-picker",
         {
-          "photosPermission": "Allow FeverDreams to access your photos to select selfies for AI image generation."
+          "photosPermission": "The app accesses your photos to let you share them with your friends and use them for AI image generation."
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "The app needs access to your camera to capture selfies for AI image generation."
         }
       ],
       "expo-apple-authentication"

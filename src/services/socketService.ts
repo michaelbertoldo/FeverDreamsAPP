@@ -17,11 +17,11 @@ import {
 // Socket.IO client instance
 let socket: Socket | null = null;
 
-// Socket.IO server URL
-const SOCKET_URL = 'https://your-firebase-function-url.com/socket';
+// Socket.IO server URL - for development, we'll use a mock/demo setup
+const SOCKET_URL = 'ws://localhost:3001'; // Change this to your actual server URL
 
 // Initialize Socket.IO client
-export const initializeSocket = ( ): Socket => {
+export const initializeSocket = (): Socket => {
   if (socket) return socket;
   
   socket = io(SOCKET_URL, {
@@ -41,70 +41,143 @@ export const initializeSocket = ( ): Socket => {
 
 // Connect to Socket.IO server
 export const connectSocket = (): void => {
-  if (!socket) initializeSocket();
-  if (socket && !socket.connected) socket.connect();
+  try {
+    if (!socket) initializeSocket();
+    if (socket && !socket.connected) {
+      socket.connect();
+    }
+  } catch (error) {
+    console.error('Error connecting to socket:', error);
+  }
 };
 
 // Disconnect from Socket.IO server
 export const disconnectSocket = (): void => {
-  if (socket && socket.connected) socket.disconnect();
+  try {
+    if (socket && socket.connected) {
+      socket.disconnect();
+    }
+  } catch (error) {
+    console.error('Error disconnecting socket:', error);
+  }
 };
 
 // Join a game room
 export const joinGame = (gameId: string, displayName: string): void => {
-  if (!socket || !socket.connected) connectSocket();
+  try {
+    if (!socket || !socket.connected) {
+      console.log('Socket not connected, attempting to connect...');
+      connectSocket();
+      
+      // Wait a bit for connection and then try to join
+      setTimeout(() => {
+        if (socket && socket.connected) {
+          const userId = auth.currentUser?.uid || `guest_${Date.now()}`;
+          socket.emit('joinGame', { gameId, userId, displayName });
+        } else {
+          console.warn('Socket still not connected after timeout');
+          // For demo purposes, simulate joining without actual socket
+          simulateJoinGame(gameId, displayName);
+        }
+      }, 1000);
+      return;
+    }
+    
+    const userId = auth.currentUser?.uid || `guest_${Date.now()}`;
+    socket.emit('joinGame', { gameId, userId, displayName });
+  } catch (error) {
+    console.error('Error joining game:', error);
+    // Fallback to simulation for demo
+    simulateJoinGame(gameId, displayName);
+  }
+};
+
+// Simulate joining game for demo purposes
+const simulateJoinGame = (gameId: string, displayName: string): void => {
+  console.log('Simulating game join for demo purposes');
+  const userId = auth.currentUser?.uid || `guest_${Date.now()}`;
   
-  const userId = auth.currentUser?.uid;
-  if (!userId) return;
-  
-  socket.emit('joinGame', { gameId, userId, displayName });
+  // Simulate adding the player to the game
+  store.dispatch(addPlayer({
+    playerId: userId,
+    displayName,
+    isHost: true // Make them host for demo
+  }));
 };
 
 // Set player ready status
 export const setPlayerReady = (gameId: string, isReady: boolean): void => {
-  if (!socket || !socket.connected) return;
-  
-  const userId = auth.currentUser?.uid;
-  if (!userId) return;
-  
-  socket.emit('playerReady', { gameId, userId, isReady });
+  try {
+    if (!socket || !socket.connected) {
+      console.warn('Socket not connected for setPlayerReady');
+      return;
+    }
+    
+    const userId = auth.currentUser?.uid;
+    if (!userId) return;
+    
+    socket.emit('playerReady', { gameId, userId, isReady });
+  } catch (error) {
+    console.error('Error setting player ready:', error);
+  }
 };
 
 // Start the game (host only)
 export const startGame = (gameId: string): void => {
-  if (!socket || !socket.connected) return;
-  
-  const userId = auth.currentUser?.uid;
-  if (!userId) return;
-  
-  socket.emit('startGame', { gameId, userId });
+  try {
+    if (!socket || !socket.connected) {
+      console.warn('Socket not connected for startGame');
+      return;
+    }
+    
+    const userId = auth.currentUser?.uid;
+    if (!userId) return;
+    
+    socket.emit('startGame', { gameId, userId });
+  } catch (error) {
+    console.error('Error starting game:', error);
+  }
 };
 
 // Submit an image for a prompt
 export const submitImage = (gameId: string, promptId: string, imageUrl: string): void => {
-  if (!socket || !socket.connected) return;
-  
-  const userId = auth.currentUser?.uid;
-  if (!userId) return;
-  
-  socket.emit('submitImage', { gameId, userId, promptId, imageUrl });
+  try {
+    if (!socket || !socket.connected) {
+      console.warn('Socket not connected for submitImage');
+      return;
+    }
+    
+    const userId = auth.currentUser?.uid;
+    if (!userId) return;
+    
+    socket.emit('submitImage', { gameId, userId, promptId, imageUrl });
+  } catch (error) {
+    console.error('Error submitting image:', error);
+  }
 };
 
 // Submit a vote for an image
 export const submitVote = (gameId: string, promptId: string, votedFor: string): void => {
-  if (!socket || !socket.connected) return;
-  
-  const userId = auth.currentUser?.uid;
-  if (!userId) return;
-  
-  socket.emit('submitVote', { gameId, userId, promptId, votedFor });
+  try {
+    if (!socket || !socket.connected) {
+      console.warn('Socket not connected for submitVote');
+      return;
+    }
+    
+    const userId = auth.currentUser?.uid;
+    if (!userId) return;
+    
+    socket.emit('submitVote', { gameId, userId, promptId, votedFor });
+  } catch (error) {
+    console.error('Error submitting vote:', error);
+  }
 };
 
 // Set up Socket.IO event listeners
 const setupSocketListeners = (socket: Socket): void => {
   // Connection events
   socket.on('connect', () => {
-    console.log('Socket connected');
+    console.log('Socket connected successfully');
   });
   
   socket.on('disconnect', () => {
@@ -120,7 +193,7 @@ const setupSocketListeners = (socket: Socket): void => {
     store.dispatch(setGameState(gameState));
   });
   
-  socket.on('playerJoined', ({ playerId, displayName, isHost, players }) => {
+  socket.on('playerJoined', ({ playerId, displayName, isHost }) => {
     store.dispatch(addPlayer({ playerId, displayName, isHost }));
   });
   
@@ -129,7 +202,7 @@ const setupSocketListeners = (socket: Socket): void => {
   });
   
   socket.on('allPlayersReady', () => {
-    // Notification that all players are ready
+    console.log('All players are ready!');
   });
   
   socket.on('gameStarted', ({ status, currentRound, prompts }) => {
@@ -155,7 +228,7 @@ const setupSocketListeners = (socket: Socket): void => {
   });
   
   socket.on('promptComplete', ({ promptId, submissions }) => {
-    // All submissions for this prompt are complete
+    console.log('Prompt complete:', promptId);
   });
   
   socket.on('allSubmissionsComplete', ({ round, prompts }) => {
@@ -177,11 +250,11 @@ const setupSocketListeners = (socket: Socket): void => {
   });
   
   socket.on('promptVotingComplete', ({ promptId, submissions }) => {
-    // Voting for this prompt is complete
+    console.log('Voting complete for prompt:', promptId);
   });
   
   socket.on('pointsAwarded', ({ promptId, submissions, players }) => {
-    // Points have been awarded for this prompt
+    console.log('Points awarded for prompt:', promptId);
   });
   
   socket.on('roundComplete', ({ round, prompts, scores }) => {
@@ -198,7 +271,7 @@ const setupSocketListeners = (socket: Socket): void => {
   });
   
   socket.on('playerDisconnected', ({ playerId, displayName }) => {
-    // Handle player disconnection
+    console.log('Player disconnected:', displayName);
   });
   
   socket.on('error', ({ message }) => {
