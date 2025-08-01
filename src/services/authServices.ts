@@ -1,4 +1,4 @@
-// src/services/authService.ts
+// src/services/authServices.ts
 import { auth, db } from '../config/firebase';
 import { 
   signInWithCredential, 
@@ -23,8 +23,8 @@ export const signInWithApple = async (): Promise<UserCredential> => {
     // Convert to Firebase credential
     const provider = new OAuthProvider('apple.com');
     const authCredential = provider.credential({
-      idToken: credential.identityToken,
-      rawNonce: credential.authorizationCode,
+      idToken: credential.identityToken!,
+      rawNonce: credential.authorizationCode!,
     });
     
     // Sign in with Firebase

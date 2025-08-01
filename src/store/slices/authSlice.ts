@@ -1,6 +1,6 @@
 // src/store/slices/authSlice.ts
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { signInWithApple, createUserProfile } from '../../services/authService';
+import { signInWithApple, createUserProfile } from '../../services/authServices';
 
 interface User {
   uid: string;

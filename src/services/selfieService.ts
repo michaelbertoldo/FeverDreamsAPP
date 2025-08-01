@@ -4,7 +4,6 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import { auth, db, storage } from '../config/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { v4 as uuidv4 } from 'uuid';
 
 // Process selfie locally before upload
 export const processSelfie = async (uri: string): Promise<string> => {
@@ -25,6 +24,11 @@ export const processSelfie = async (uri: string): Promise<string> => {
   }
 };
 
+// Generate a unique ID for file naming
+const generateUniqueId = (): string => {
+  return Date.now().toString() + Math.random().toString(36).substr(2, 9);
+};
+
 // Generate a signed upload URL from Cloudinary
 export const getCloudinarySignature = async () => {
   // In a real app, this would be a secure API call to your backend
@@ -32,7 +36,7 @@ export const getCloudinarySignature = async () => {
   // For demo purposes, we'll simulate this
   
   const timestamp = Math.round(new Date().getTime() / 1000);
-  const publicId = `selfies/${auth.currentUser?.uid}/${uuidv4()}`;
+  const publicId = `selfies/${auth.currentUser?.uid}/${generateUniqueId()}`;
   
   // This would normally be done server-side for security
   // You would implement a Firebase Function for this
@@ -44,7 +48,7 @@ export const getCloudinarySignature = async () => {
   };
 };
 
-// Upload selfie to Cloudinary
+// Upload selfie to Cloudinary (using Firebase Storage as intermediary for now)
 export const uploadSelfieToCloudinary = async (uri: string): Promise<string> => {
   try {
     const processedUri = await processSelfie(uri);
@@ -62,7 +66,7 @@ export const uploadSelfieToCloudinary = async (uri: string): Promise<string> => 
     const userId = auth.currentUser?.uid;
     if (!userId) throw new Error('User not authenticated');
     
-    const selfieRef = ref(storage, `selfies/${userId}/${uuidv4()}.jpg`);
+    const selfieRef = ref(storage, `selfies/${userId}/${generateUniqueId()}.jpg`);
     await uploadBytes(selfieRef, blob);
     
     // Get download URL
@@ -73,13 +77,11 @@ export const uploadSelfieToCloudinary = async (uri: string): Promise<string> => 
     // 2. Delete the temporary Firebase storage file
     // 3. Return the Cloudinary URL
     
-    // For now, we'll simulate a Cloudinary URL
-    const simulatedCloudinaryUrl = `https://res.cloudinary.com/your-cloud/image/upload/v1/${userId}/selfie.jpg`;
-    
+    // For now, we'll use the Firebase URL directly
     // Update user profile with selfie URL
-    await updateUserSelfie(userId, simulatedCloudinaryUrl );
+    await updateUserSelfie(userId, downloadURL);
     
-    return simulatedCloudinaryUrl;
+    return downloadURL;
   } catch (error) {
     console.error('Error uploading selfie:', error);
     throw error;
@@ -110,7 +112,7 @@ export const getUserSelfie = async (userId: string): Promise<string | null> => {
     
     // For demo purposes, we'll return a simulated URL
     return `https://res.cloudinary.com/your-cloud/image/upload/v1/${userId}/selfie.jpg`;
-  } catch (error ) {
+  } catch (error) {
     console.error('Error getting user selfie:', error);
     return null;
   }

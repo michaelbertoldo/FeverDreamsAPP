@@ -30,7 +30,7 @@ export default function SelfieScreen() {
       dispatch(setSelfieUploaded(true));
       
       // Navigate to profile completion
-      navigation.navigate('Profile');
+      navigation.navigate('Profile' as never);
     } catch (err) {
       setError('Failed to upload selfie. Please try again.');
       console.error('Selfie upload error:', err);
