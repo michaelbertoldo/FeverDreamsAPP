@@ -1,4 +1,3 @@
-// App.tsx
 import React, { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { Provider } from 'react-redux';
@@ -8,12 +7,17 @@ import { setupNetworkMonitoring } from './src/utils/networkResilience';
 
 export default function App() {
   useEffect(() => {
-    // Set up network monitoring
-    const cleanupNetwork = setupNetworkMonitoring();
-    
-    return () => {
-      cleanupNetwork();
-    };
+    // Set up network monitoring with error handling
+    try {
+      const cleanupNetwork = setupNetworkMonitoring();
+      return () => {
+        if (cleanupNetwork) {
+          cleanupNetwork();
+        }
+      };
+    } catch (error) {
+      console.log('Network monitoring setup failed:', error);
+    }
   }, []);
 
   return (

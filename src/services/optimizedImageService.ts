@@ -1,204 +1,408 @@
-// src/services/optimizedImageService.ts
+// src/services/optimizedImageService.ts - FIXED VERSION
 import * as FileSystem from 'expo-file-system';
 import * as ImageManipulator from 'expo-image-manipulator';
-import { Platform } from 'react-native';
-import { getNetworkState } from '../utils/networkResilience';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Image processing constants
-const IMAGE_QUALITY = {
-  HIGH: 0.9,
-  MEDIUM: 0.7,
-  LOW: 0.5,
-};
+interface AIGenerationOptions {
+  prioritizeSpeed?: boolean;
+  forceHighQuality?: boolean;
+  useCache?: boolean;
+}
 
-const IMAGE_SIZE = {
-  LARGE: { width: 1024, height: 1024 },
-  MEDIUM: { width: 768, height: 768 },
-  SMALL: { width: 512, height: 512 },
-  TINY: { width: 256, height: 256 },
-};
-
-// Cache configuration
-const CACHE_CONFIG = {
-  MAX_SIZE_MB: 50, // Maximum cache size in MB
-  TTL_MS: 24 * 60 * 60 * 1000, // 24 hours
-};
-
-/**
- * Optimize image based on network conditions and device capabilities
- */
-export const optimizeImage = async (
-  imageUri: string,
-  purpose: 'upload' | 'display' | 'ai-input'
-): Promise<string> => {
+export const generateOptimizedAIImage = async (
+  prompt: string,
+  userId: string,
+  options: AIGenerationOptions = {}
+): Promise<{ success: boolean; imageUrl?: string; error?: string }> => {
   try {
-    // Get current network state
-    const networkState = await getNetworkState();
+    console.log('Generating AI image with prompt:', prompt);
+    console.log('Options:', options);
     
-    // Determine optimal settings based on network and purpose
-    const settings = getOptimalSettings(networkState, purpose);
-    
-    // Process image with optimal settings
-    const result = await ImageManipulator.manipulateAsync(
-      imageUri,
-      [{ resize: settings.size }],
-      {
-        compress: settings.quality,
-        format: settings.format,
+    // Check cache first if enabled
+    if (options.useCache) {
+      const cachedImage = await checkImageCache(userId, prompt);
+      if (cachedImage) {
+        console.log('Using cached image');
+        return {
+          success: true,
+          imageUrl: cachedImage,
+        };
       }
-    );
+    }
     
-    return result.uri;
+    // Mock AI generation - replace with actual Replicate API call
+    const delay = options.prioritizeSpeed ? 1000 : 2000;
+    
+    await new Promise(resolve => setTimeout(resolve, delay));
+    
+    // Mock success response with a placeholder image
+    const imageUrl = `https://picsum.photos/400/400?random=${Date.now()}&user=${userId}`;
+    
+    // Cache the result if caching is enabled
+    if (options.useCache) {
+      await cacheImageResult(userId, prompt, imageUrl);
+    }
+    
+    return {
+      success: true,
+      imageUrl,
+    };
   } catch (error) {
-    console.error('Error optimizing image:', error);
-    return imageUri; // Return original if optimization fails
+    console.error('AI image generation failed:', error);
+    return {
+      success: false,
+      error: 'Failed to generate image. Please try again.',
+    };
   }
 };
 
 /**
- * Get optimal image processing settings based on network and purpose
+ * Check if we have a cached result for this prompt and user
  */
-const getOptimalSettings = (
-  networkState: { type: string; isConnected: boolean; isInternetReachable: boolean },
-  purpose: 'upload' | 'display' | 'ai-input'
-) => {
-  // Default settings
-  let quality = IMAGE_QUALITY.MEDIUM;
-  let size = IMAGE_SIZE.MEDIUM;
-  let format = ImageManipulator.SaveFormat.JPEG;
-  
-  // Adjust based on network type
-  if (!networkState.isConnected || !networkState.isInternetReachable) {
-    // Offline or poor connection - use lowest quality
-    quality = IMAGE_QUALITY.LOW;
-    size = IMAGE_SIZE.SMALL;
-  } else if (networkState.type === 'wifi') {
-    // WiFi - can use higher quality
-    quality = IMAGE_QUALITY.HIGH;
-    size = IMAGE_SIZE.LARGE;
-  } else if (networkState.type === 'cellular') {
-    // Cellular - use medium quality
-    quality = IMAGE_QUALITY.MEDIUM;
-    size = IMAGE_SIZE.MEDIUM;
+const checkImageCache = async (
+  userId: string,
+  prompt: string
+): Promise<string | null> => {
+  try {
+    // Create a cache key based on user ID and prompt
+    const cacheKey = `${userId}_${prompt.replace(/\s+/g, '_').toLowerCase()}`;
+    
+    // Check if we have this key in AsyncStorage
+    const cachedUrl = await AsyncStorage.getItem(`ai_image_${cacheKey}`);
+    
+    if (cachedUrl) {
+      // Verify the cached image still exists
+      const cachedImagePath = await getCachedImage(cachedUrl);
+      return cachedImagePath;
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Error checking image cache:', error);
+    return null;
   }
-  
-  // Adjust based on purpose
-  switch (purpose) {
-    case 'upload':
-      // For uploading selfies
-      size = IMAGE_SIZE.MEDIUM; // 768x768 is sufficient for face detection
-      break;
-    case 'display':
-      // For displaying in the app
-      // Use device-specific optimizations
-      if (Platform.OS === 'ios' && Platform.Version >= '14.0') {
-        format = ImageManipulator.SaveFormat.WEBP; // Better compression on newer iOS
-      }
-      break;
-    case 'ai-input':
-      // For AI processing
-      size = IMAGE_SIZE.SMALL; // 512x512 is standard for many AI models
-      quality = IMAGE_QUALITY.HIGH; // Need good quality for AI
-      break;
-  }
-  
-  return { quality, size, format };
 };
 
 /**
- * Cache management utilities
+ * Cache image result for future use
  */
+const cacheImageResult = async (
+  userId: string,
+  prompt: string,
+  imageUrl: string
+): Promise<void> => {
+  try {
+    // Create a cache key based on user ID and prompt
+    const cacheKey = `${userId}_${prompt.replace(/\s+/g, '_').toLowerCase()}`;
+    
+    // Cache the URL
+    await AsyncStorage.setItem(`ai_image_${cacheKey}`, imageUrl);
+    
+    // Download and cache the actual image
+    await getCachedImage(imageUrl);
+  } catch (error) {
+    console.error('Error caching image result:', error);
+  }
+};
 
-// Get cache size
+/**
+ * Get cached image or download and cache it - NOW EXPORTED
+ */
+export const getCachedImage = async (imageUrl: string): Promise<string> => {
+  try {
+    // Create filename from URL
+    const filename = `cached_image_${Date.now()}.jpg`;
+    const fileUri = `${FileSystem.cacheDirectory}${filename}`;
+    
+    // Check if already cached by checking if file exists
+    const fileInfo = await FileSystem.getInfoAsync(fileUri);
+    if (fileInfo.exists) {
+      return fileUri;
+    }
+    
+    // Download the image
+    const downloadResult = await FileSystem.downloadAsync(imageUrl, fileUri);
+    
+    if (downloadResult.status === 200) {
+      return downloadResult.uri;
+    } else {
+      throw new Error('Failed to download image');
+    }
+  } catch (error) {
+    console.error('Error getting cached image:', error);
+    // Return original URL as fallback
+    return imageUrl;
+  }
+};
+
+/**
+ * Get cache directory size - FIXED VERSION
+ */
 export const getCacheSize = async (): Promise<number> => {
   try {
     const cacheDir = FileSystem.cacheDirectory;
+    
+    // FIX 1: Check if cacheDir is null
+    if (!cacheDir) {
+      console.warn('Cache directory is not available');
+      return 0;
+    }
+    
+    // FIX 2: Get directory info and handle the correct property structure
     const dirInfo = await FileSystem.getInfoAsync(cacheDir);
-    return dirInfo.size || 0;
+    
+    if (!dirInfo.exists) {
+      return 0;
+    }
+    
+    // FIX 3: FileInfo doesn't have a 'size' property for directories
+    // We need to calculate the size differently for directories
+    if (dirInfo.isDirectory) {
+      return await calculateDirectorySize(cacheDir);
+    } else {
+      // For files, we can get size from FileInfo if it exists
+      const fileInfo = dirInfo as FileSystem.FileInfo & { size?: number };
+      return fileInfo.size || 0;
+    }
   } catch (error) {
     console.error('Error getting cache size:', error);
     return 0;
   }
 };
 
-// Clear cache if it exceeds maximum size
-export const manageCacheSize = async (): Promise<void> => {
+/**
+ * Calculate total size of all files in a directory
+ */
+const calculateDirectorySize = async (directoryUri: string): Promise<number> => {
   try {
-    const cacheSize = await getCacheSize();
-    const maxSizeBytes = CACHE_CONFIG.MAX_SIZE_MB * 1024 * 1024;
+    const dirContents = await FileSystem.readDirectoryAsync(directoryUri);
+    let totalSize = 0;
     
-    if (cacheSize > maxSizeBytes) {
-      // Clear cache
-      await FileSystem.deleteAsync(`${FileSystem.cacheDirectory}images/`, { idempotent: true });
-      await FileSystem.makeDirectoryAsync(`${FileSystem.cacheDirectory}images/`, { intermediates: true });
+    for (const item of dirContents) {
+      const itemUri = `${directoryUri}${item}`;
+      const itemInfo = await FileSystem.getInfoAsync(itemUri);
+      
+      if (itemInfo.exists && !itemInfo.isDirectory) {
+        // For files, try to get size (though it's not always available in FileInfo)
+        const fileInfo = itemInfo as FileSystem.FileInfo & { size?: number };
+        if (fileInfo.size) {
+          totalSize += fileInfo.size;
+        }
+      }
     }
+    
+    return totalSize;
+  } catch (error) {
+    console.error('Error calculating directory size:', error);
+    return 0;
+  }
+};
+
+/**
+ * Clear image cache
+ */
+export const clearImageCache = async (): Promise<void> => {
+  try {
+    const cacheDir = FileSystem.cacheDirectory;
+    
+    if (!cacheDir) {
+      console.warn('Cache directory is not available');
+      return;
+    }
+    
+    // Clear AsyncStorage cache keys
+    const keys = await AsyncStorage.getAllKeys();
+    const imageKeys = keys.filter(key => key.startsWith('ai_image_'));
+    await AsyncStorage.multiRemove(imageKeys);
+    
+    // Clear cached files
+    const dirContents = await FileSystem.readDirectoryAsync(cacheDir);
+    const imageFiles = dirContents.filter(file => 
+      file.startsWith('cached_image_') && 
+      (file.endsWith('.jpg') || file.endsWith('.png'))
+    );
+    
+    for (const file of imageFiles) {
+      const fileUri = `${cacheDir}${file}`;
+      await FileSystem.deleteAsync(fileUri, { idempotent: true });
+    }
+    
+    console.log('Image cache cleared successfully');
+  } catch (error) {
+    console.error('Error clearing image cache:', error);
+  }
+};
+
+/**
+ * Get cache statistics
+ */
+export const getCacheStats = async (): Promise<{
+  totalSize: number;
+  fileCount: number;
+  oldestFile: Date | null;
+}> => {
+  try {
+    const cacheDir = FileSystem.cacheDirectory;
+    
+    if (!cacheDir) {
+      return { totalSize: 0, fileCount: 0, oldestFile: null };
+    }
+    
+    const dirContents = await FileSystem.readDirectoryAsync(cacheDir);
+    const imageFiles = dirContents.filter(file => 
+      file.startsWith('cached_image_') && 
+      (file.endsWith('.jpg') || file.endsWith('.png'))
+    );
+    
+    let totalSize = 0;
+    let oldestDate: Date | null = null;
+    
+    for (const file of imageFiles) {
+      const fileUri = `${cacheDir}${file}`;
+      const fileInfo = await FileSystem.getInfoAsync(fileUri);
+      
+      if (fileInfo.exists && !fileInfo.isDirectory) {
+        // Try to get file size
+        const fileInfoWithSize = fileInfo as FileSystem.FileInfo & { size?: number };
+        if (fileInfoWithSize.size) {
+          totalSize += fileInfoWithSize.size;
+        }
+        
+        // Try to get modification time
+        const fileInfoWithTime = fileInfo as FileSystem.FileInfo & { modificationTime?: number };
+        if (fileInfoWithTime.modificationTime) {
+          const fileDate = new Date(fileInfoWithTime.modificationTime * 1000);
+          if (!oldestDate || fileDate < oldestDate) {
+            oldestDate = fileDate;
+          }
+        }
+      }
+    }
+    
+    return {
+      totalSize,
+      fileCount: imageFiles.length,
+      oldestFile: oldestDate,
+    };
+  } catch (error) {
+    console.error('Error getting cache stats:', error);
+    return { totalSize: 0, fileCount: 0, oldestFile: null };
+  }
+};
+
+/**
+ * Manage cache size - clean up old files if cache is too large
+ */
+export const manageCacheSize = async (maxSizeBytes: number = 50 * 1024 * 1024): Promise<void> => {
+  try {
+    const currentSize = await getCacheSize();
+    
+    if (currentSize <= maxSizeBytes) {
+      console.log(`Cache size (${currentSize} bytes) is within limit (${maxSizeBytes} bytes)`);
+      return;
+    }
+    
+    console.log(`Cache size (${currentSize} bytes) exceeds limit (${maxSizeBytes} bytes). Cleaning up...`);
+    
+    const cacheDir = FileSystem.cacheDirectory;
+    if (!cacheDir) {
+      console.warn('Cache directory is not available');
+      return;
+    }
+    
+    // Get all cached image files with their modification times
+    const dirContents = await FileSystem.readDirectoryAsync(cacheDir);
+    const imageFiles = dirContents.filter(file => 
+      file.startsWith('cached_image_') && 
+      (file.endsWith('.jpg') || file.endsWith('.png'))
+    );
+    
+    // Get file info with modification times
+    const filesWithInfo = await Promise.all(
+      imageFiles.map(async (file) => {
+        const fileUri = `${cacheDir}${file}`;
+        const fileInfo = await FileSystem.getInfoAsync(fileUri);
+        
+        const fileInfoWithTime = fileInfo as FileSystem.FileInfo & { 
+          modificationTime?: number;
+          size?: number;
+        };
+        
+        return {
+          uri: fileUri,
+          name: file,
+          modificationTime: fileInfoWithTime.modificationTime || 0,
+          size: fileInfoWithTime.size || 0,
+        };
+      })
+    );
+    
+    // Sort by modification time (oldest first)
+    const sortedFiles = filesWithInfo.sort((a, b) => a.modificationTime - b.modificationTime);
+    
+    // Delete oldest files until we're under the size limit
+    let deletedSize = 0;
+    for (const file of sortedFiles) {
+      try {
+        await FileSystem.deleteAsync(file.uri, { idempotent: true });
+        deletedSize += file.size;
+        console.log(`Deleted cached file: ${file.name} (${file.size} bytes)`);
+        
+        // Check if we've freed up enough space
+        if (currentSize - deletedSize <= maxSizeBytes) {
+          break;
+        }
+      } catch (error) {
+        console.error(`Failed to delete cached file ${file.name}:`, error);
+      }
+    }
+    
+    console.log(`Cache cleanup complete. Freed ${deletedSize} bytes.`);
   } catch (error) {
     console.error('Error managing cache size:', error);
   }
 };
 
 /**
- * Prefetch and cache images
+ * Optimize image for better performance and smaller file size
  */
-export const prefetchImages = async (imageUrls: string[]): Promise<void> => {
+export const optimizeImage = async (
+  imageUri: string,
+  options: {
+    width?: number;
+    height?: number;
+    quality?: number;
+    format?: 'jpeg' | 'png';
+  } = {}
+): Promise<string> => {
   try {
-    // Create cache directory if it doesn't exist
-    const cacheDir = `${FileSystem.cacheDirectory}images/`;
-    await FileSystem.makeDirectoryAsync(cacheDir, { intermediates: true });
-    
-    // Prefetch images in parallel with limits
-    const batchSize = 3; // Process 3 images at a time
-    
-    for (let i = 0; i < imageUrls.length; i += batchSize) {
-      const batch = imageUrls.slice(i, i + batchSize);
-      await Promise.all(
-        batch.map(async (url) => {
-          const filename = url.split('/').pop();
-          const filePath = `${cacheDir}${filename}`;
-          
-          // Check if file already exists in cache
-          const fileInfo = await FileSystem.getInfoAsync(filePath);
-          
-          if (!fileInfo.exists) {
-            // Download and cache the image
-            await FileSystem.downloadAsync(url, filePath);
-          }
-        })
-      );
-    }
-  } catch (error) {
-    console.error('Error prefetching images:', error);
-  }
-};
+    const {
+      width = 400,
+      height = 400,
+      quality = 0.8,
+      format = 'jpeg'
+    } = options;
 
-/**
- * Get cached image URI or download if not cached
- */
-export const getCachedImage = async (url: string): Promise<string> => {
-  try {
-    const cacheDir = `${FileSystem.cacheDirectory}images/`;
-    const filename = url.split('/').pop();
-    const filePath = `${cacheDir}${filename}`;
-    
-    // Check if file exists in cache
-    const fileInfo = await FileSystem.getInfoAsync(filePath);
-    
-    if (fileInfo.exists) {
-      // Check if cache is expired
-      const now = new Date().getTime();
-      const fileTime = fileInfo.modificationTime * 1000;
-      
-      if (now - fileTime < CACHE_CONFIG.TTL_MS) {
-        // Cache is valid
-        return filePath;
+    console.log('Optimizing image:', imageUri);
+
+    // Use ImageManipulator to resize and compress
+    const result = await ImageManipulator.manipulateAsync(
+      imageUri,
+      [
+        { resize: { width, height } }
+      ],
+      {
+        compress: quality,
+        format: format === 'jpeg' ? ImageManipulator.SaveFormat.JPEG : ImageManipulator.SaveFormat.PNG,
+        base64: false,
       }
-    }
-    
-    // Download and cache the image
-    await FileSystem.downloadAsync(url, filePath);
-    return filePath;
+    );
+
+    console.log('Image optimized successfully:', result.uri);
+    return result.uri;
   } catch (error) {
-    console.error('Error getting cached image:', error);
-    return url; // Return original URL if caching fails
+    console.error('Error optimizing image:', error);
+    // Return original URI as fallback
+    return imageUri;
   }
 };

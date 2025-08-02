@@ -1,195 +1,140 @@
-// src/hooks/useGameNotifications.ts
-import { useEffect, useRef } from 'react';
+// src/hooks/useGameNotifications.ts - FIXED VERSION
+import { useEffect } from 'react';
 import { useSelector } from 'react-redux';
-import { AppState, AppStateStatus } from 'react-native';
-import {
-  notifyPlayerTurn,
-  notifyVotingStarted,
-  notifyRoundResults,
-  notifyGameResults,
-  remindInactivePlayer,
-  setBadgeCount,
-} from '../services/notificationService';
+import * as Notifications from 'expo-notifications';
 import { RootState } from '../store';
 
 export const useGameNotifications = () => {
-  // Get game state from Redux
-  const {
-    gameId,
-    status,
-    currentRound,
-    currentPromptData,
-    players,
-    roundResults,
-    gameResults,
-  } = useSelector((state: RootState) => state.game);
+  const gameState = useSelector((state: RootState) => state.game);
   
-  // Get user data with null check
-  const user = useSelector((state: RootState) => state.auth.user);
-  const userId = user?.uid;
-  
-  // Refs for tracking state changes
-  const prevStatus = useRef(status);
-  const prevPromptId = useRef(currentPromptData?.promptId);
-  const appState = useRef(AppState.currentState);
-  const inactivityTimer = useRef<NodeJS.Timeout | null>(null);
-  
-  // Handle app state changes (background/foreground)
   useEffect(() => {
-    const subscription = AppState.addEventListener('change', handleAppStateChange);
-    
-    return () => {
-      subscription.remove();
-      if (inactivityTimer.current) {
-        clearTimeout(inactivityTimer.current);
-      }
-    };
-  }, []);
-  
-  // Handle app state change
-  const handleAppStateChange = (nextAppState: AppStateStatus) => {
-    // Check if app is going to background
-    if (
-      appState.current.match(/active/) &&
-      nextAppState.match(/inactive|background/)
-    ) {
-      // App is going to background
-      startInactivityTimer();
-    } else if (
-      appState.current.match(/inactive|background/) &&
-      nextAppState === 'active'
-    ) {
-      // App is coming to foreground
-      stopInactivityTimer();
-      
-      // Reset badge count
-      setBadgeCount(0);
-    }
-    
-    appState.current = nextAppState;
-  };
-  
-  // Start inactivity timer
-  const startInactivityTimer = () => {
-    // Only start timer if we have userId and player is in an active game and it's their turn
-    if (
-      userId &&
-      gameId &&
-      status === 'playing' &&
-      currentPromptData?.isAssigned &&
-      currentPromptData?.assignedPlayers?.includes(userId)
-    ) {
-      // Set timer for 30 seconds
-      inactivityTimer.current = setTimeout(() => {
-        // Send reminder notification
-        remindInactivePlayer(gameId, 30);
-      }, 30000);
-    }
-  };
-  
-  // Stop inactivity timer
-  const stopInactivityTimer = () => {
-    if (inactivityTimer.current) {
-      clearTimeout(inactivityTimer.current);
-      inactivityTimer.current = null;
-    }
-  };
-  
-  // Watch for game status changes
-  useEffect(() => {
-    // Skip if we don't have userId or on first render
-    if (!userId || prevStatus.current === status) return;
-    
-    // Handle status changes when app is in background
-    if (appState.current.match(/inactive|background/)) {
-      switch (status) {
-        case 'voting':
-          // Notify when voting starts
-          notifyVotingStarted();
-          break;
-        case 'results':
-          // Notify when round results are available
-          if (roundResults) {
-            const winnerData = getWinnerData();
-            if (winnerData) {
-              notifyRoundResults(
-                roundResults.round,
-                winnerData.displayName || 'Unknown Player',
-                roundResults.scores[userId]?.totalScore || 0
+    const handleGameStateChange = async () => {
+      try {
+        // Handle different game states
+        switch (gameState.status) {
+          case 'playing':
+            if (gameState.currentPromptData?.promptText) {
+              await sendNotification(
+                'New Prompt!',
+                `Your prompt: ${gameState.currentPromptData.promptText}`
               );
             }
-          }
-          break;
-        case 'completed':
-          // Notify when game is completed
-          if (gameResults) {
-            const isWinner = gameResults.winner?.playerId === userId;
-            notifyGameResults(
-              gameResults.winner?.displayName || 'Unknown',
-              gameResults.scores[userId]?.score || 0,
-              isWinner
+            break;
+            
+          case 'voting':
+            await sendNotification(
+              'Time to Vote!',
+              'Vote for the funniest image!'
             );
-          }
-          break;
-      }
-    }
-    
-    // Update previous status
-    prevStatus.current = status;
-  }, [status, roundResults, gameResults, userId]);
-  
-  // Watch for prompt changes
-  useEffect(() => {
-    // Skip if we don't have userId or on first render
-    if (!userId || prevPromptId.current === currentPromptData?.promptId) return;
-    
-    // Handle prompt changes when app is in background
-    if (
-      appState.current.match(/inactive|background/) &&
-      currentPromptData?.isAssigned &&
-      currentPromptData?.assignedPlayers?.includes(userId)
-    ) {
-      // Notify player it's their turn
-      notifyPlayerTurn(
-        players[userId]?.displayName || 'Player',
-        currentPromptData.promptText || 'Create a funny image!'
-      );
-    }
-    
-    // Update previous prompt ID
-    prevPromptId.current = currentPromptData?.promptId;
-  }, [currentPromptData?.promptId, currentPromptData?.isAssigned, userId]);
-  
-  // Helper function to get winner data
-  const getWinnerData = () => {
-    if (roundResults && players) {
-      // Find player with highest round score
-      let highestScore = -1;
-      let roundWinner: {
-        playerId: string;
-        displayName: string;
-        score: number;
-      } | null = null;
-      
-      Object.entries(roundResults.scores).forEach(([playerId, scoreData]) => {
-        if (scoreData.roundScore > highestScore) {
-          highestScore = scoreData.roundScore;
-          roundWinner = {
-            playerId,
-            displayName: players[playerId]?.displayName || 'Unknown Player',
-            score: highestScore
-          };
+            break;
+            
+          case 'results':
+            if (gameState.roundResults) {
+              await sendNotification(
+                'Round Complete!',
+                'Check out the results!'
+              );
+            }
+            break;
+            
+          case 'completed':
+            await handleGameComplete(gameState);
+            break;
         }
-      });
-      
-      return roundWinner;
-    }
+      } catch (error) {
+        console.error('Error handling game notification:', error);
+      }
+    };
     
-    return null;
+    handleGameStateChange();
+  }, [gameState.status, gameState.currentPromptData, gameState.roundResults, gameState.gameResults]);
+  
+  const handleGameComplete = async (gameData: typeof gameState) => {
+    try {
+      if (gameData.gameResults?.winner) {
+        const winnerData = gameData.gameResults.winner;
+        
+        // Safe property access
+        const winnerName = winnerData?.displayName || 'Unknown Player';
+        const winnerScore = winnerData?.score || 0;
+        
+        await sendNotification(
+          'Game Complete! 🎉',
+          `${winnerName} wins with ${winnerScore} points!`
+        );
+      } else {
+        await sendNotification(
+          'Game Complete!',
+          'Thanks for playing!'
+        );
+      }
+    } catch (error) {
+      console.error('Error sending game complete notification:', error);
+    }
   };
   
-  // Early return if user is not loaded yet
-  if (!userId) {
-    return;
-  }
+  const sendNotification = async (title: string, body: string) => {
+    try {
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title,
+          body,
+          sound: true,
+        },
+        trigger: null, // Show immediately
+      });
+    } catch (error) {
+      console.error('Error sending notification:', error);
+    }
+  };
+};
+
+// Alternative: Even safer approach using defensive programming
+export const useGameNotificationsSafe = () => {
+  const gameState = useSelector((state: RootState) => state.game);
+  
+  useEffect(() => {
+    if (gameState.status === 'completed') {
+      handleGameCompleteSafe();
+    }
+  }, [gameState.status, gameState.gameResults]);
+  
+  const handleGameCompleteSafe = async () => {
+    try {
+      // Defensive programming - handle any possible type issues
+      const gameResults = gameState?.gameResults;
+      const winner = gameResults?.winner;
+      
+      if (winner && typeof winner === 'object') {
+        // Safe property access with type checking
+        const displayName = 'displayName' in winner && typeof winner.displayName === 'string' 
+          ? winner.displayName 
+          : 'Unknown Player';
+          
+        const score = 'score' in winner && typeof winner.score === 'number' 
+          ? winner.score 
+          : 0;
+        
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title: 'Game Complete! 🎉',
+            body: `${displayName} wins with ${score} points!`,
+            sound: true,
+          },
+          trigger: null,
+        });
+      } else {
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title: 'Game Complete!',
+            body: 'Thanks for playing!',
+            sound: true,
+          },
+          trigger: null,
+        });
+      }
+    } catch (error) {
+      console.error('Error sending game complete notification:', error);
+    }
+  };
 };
