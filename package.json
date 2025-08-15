@@ -1,0 +1,130 @@
+{
+  "name": "ai-party-game-ios",
+  "version": "1.0.0",
+  "main": "index.ts",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:ci": "jest --coverage --watchAll=false",
+    "lint": "eslint . --ext .ts,.tsx,.js,.jsx",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@expo/vector-icons": "^14.1.0",
+    "@react-native-async-storage/async-storage": "^2.2.0",
+    "@react-native-community/netinfo": "11.4.1",
+    "@react-navigation/bottom-tabs": "^6.6.1",
+    "@react-navigation/native": "^6.1.18",
+    "@react-navigation/stack": "^6.4.1",
+    "@reduxjs/toolkit": "^2.8.2",
+    "axios": "^1.7.3",
+    "expo": "~53.0.20",
+    "expo-apple-authentication": "~7.2.4",
+    "expo-auth-session": "~6.2.1",
+    "expo-battery": "^9.1.4",
+    "expo-camera": "~16.1.11",
+    "expo-clipboard": "~7.1.0",
+    "expo-constants": "^17.1.7",
+    "expo-crypto": "~14.1.5",
+    "expo-device": "~7.1.4",
+    "expo-file-system": "~18.1.11",
+    "expo-image": "~2.4.0",
+    "expo-image-manipulator": "~13.1.7",
+    "expo-image-picker": "~16.1.4",
+    "expo-media-library": "~17.1.7",
+    "expo-notifications": "~0.31.4",
+    "expo-secure-store": "~14.2.3",
+    "expo-sharing": "~13.1.5",
+    "expo-status-bar": "~2.2.3",
+    "firebase": "^12.0.0",
+    "react": "19.0.0",
+    "react-native": "0.79.5",
+    "react-native-gesture-handler": "~2.24.0",
+    "react-native-reanimated": "~3.17.4",
+    "react-native-safe-area-context": "4.8.2",
+    "react-native-screens": "~3.29.0",
+    "react-native-svg": "^15.11.2",
+    "react-native-view-shot": "4.0.3",
+    "react-redux": "^9.2.0",
+    "replicate": "^1.0.1",
+    "socket.io-client": "^4.8.1"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.25.2",
+    "@eslint/js": "^9.8.0",
+    "@testing-library/jest-native": "^5.4.3",
+    "@testing-library/react-native": "^12.9.0",
+    "@types/jest": "^29.5.8",
+    "@types/react": "~19.0.10",
+    "@types/react-native": "~0.73.0",
+    "@types/socket.io-client": "^3.0.0",
+    "@typescript-eslint/eslint-plugin": "^7.18.0",
+    "@typescript-eslint/parser": "^7.18.0",
+    "eslint": "^8.57.0",
+    "eslint-plugin-react": "^7.35.0",
+    "eslint-plugin-react-hooks": "^4.6.2",
+    "eslint-plugin-react-native": "^4.1.0",
+    "jest": "^29.7.0",
+    "jest-expo": "~53.0.9",
+    "react-test-renderer": "19.0.0",
+    "typescript": "^5.9.2"
+  },
+  "jest": {
+    "preset": "jest-expo",
+    "transformIgnorePatterns": [
+      "node_modules/(?!(jest-)?react-native|@react-native|@expo|expo|@expo/(.*)|react-clone-referenced-element|@react-native-community|@react-navigation)"
+    ],
+    "setupFilesAfterEnv": [
+      "<rootDir>/src/tests/setup.ts"
+    ],
+    "testMatch": [
+      "<rootDir>/src/tests/**/*.(test|spec).(ts|tsx|js|jsx)"
+    ],
+    "collectCoverageFrom": [
+      "src/**/*.{ts,tsx}",
+      "!src/**/*.d.ts",
+      "!src/tests/**/*",
+      "!src/**/*.stories.*"
+    ],
+    "moduleFileExtensions": [
+      "ts",
+      "tsx",
+      "js",
+      "jsx",
+      "json"
+    ],
+    "testEnvironment": "jsdom",
+    "moduleNameMapping": {
+      "^@/(.*)$": "<rootDir>/src/$1"
+    },
+    "coverageReporters": [
+      "text",
+      "lcov",
+      "html"
+    ],
+    "coverageThreshold": {
+      "global": {
+        "branches": 70,
+        "functions": 70,
+        "lines": 70,
+        "statements": 70
+      }
+    }
+  },
+  "overrides": {
+    "react-test-renderer": "19.0.0"
+  },
+  "resolutions": {
+    "react-test-renderer": "19.0.0"
+  },
+  "private": true,
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  }
+}
