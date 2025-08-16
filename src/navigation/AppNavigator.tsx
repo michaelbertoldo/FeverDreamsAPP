@@ -44,7 +44,7 @@ const AuthNavigator = () => {
   );
 };
 
-// Main Tab Navigator - FIXED ICON SIZE
+// Main Tab Navigator
 const MainTabNavigator = () => {
   return (
     <Tab.Navigator
@@ -67,7 +67,6 @@ const MainTabNavigator = () => {
             iconName = focused ? 'images' : 'images-outline';
           }
           
-          // FIXED: Ensure size is always a number
           const iconSize = typeof size === 'number' ? size : 24;
           
           return <Ionicons name={iconName} size={iconSize} color={color} />;
@@ -100,26 +99,21 @@ const GameNavigator = () => {
   );
 };
 
-// Root Navigator - FIXED WITH SAFETY CHECKS
+// Root Navigator
 const AppNavigator = () => {
   const authState = useSelector((state: RootState) => state.auth);
   const gameState = useSelector((state: RootState) => state.game);
   
-  // Safety checks for undefined values
   const user = authState?.user;
   const selfieUploaded = authState?.selfieUploaded || false;
   const gameId = gameState?.gameId;
   
-  console.log('🎮 Navigation state:', { user: !!user, selfieUploaded, gameId: !!gameId });
-  
   const getActiveNavigator = () => {
     if (!user) {
-      console.log('📱 Showing Auth Navigator');
       return <AuthNavigator />;
     }
     
     if (!selfieUploaded) {
-      console.log('📸 Showing Selfie Screen');
       return (
         <Stack.Navigator screenOptions={{ headerShown: false }}>
           <Stack.Screen name="Selfie" component={SelfieScreen} />
@@ -128,11 +122,9 @@ const AppNavigator = () => {
     }
     
     if (gameId) {
-      console.log('🎮 Showing Game Navigator');
       return <GameNavigator />;
     }
     
-    console.log('🏠 Showing Main Navigator');
     return <MainTabNavigator />;
   };
   

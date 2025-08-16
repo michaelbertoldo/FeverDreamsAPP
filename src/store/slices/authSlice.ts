@@ -51,6 +51,11 @@ const authSlice = createSlice({
   name: 'auth',
   initialState,
   reducers: {
+    setUser: (state, action: PayloadAction<User>) => {
+      state.user = action.payload;
+      state.loading = false;
+      state.error = null;
+    },
     setSelfieUploaded: (state, action: PayloadAction<boolean>) => {
       state.selfieUploaded = action.payload;
     },
@@ -60,6 +65,13 @@ const authSlice = createSlice({
     },
     clearError: (state) => {
       state.error = null;
+    },
+    setLoading: (state, action: PayloadAction<boolean>) => {
+      state.loading = action.payload;
+    },
+    setError: (state, action: PayloadAction<string>) => {
+      state.error = action.payload;
+      state.loading = false;
     }
   },
   extraReducers: (builder) => {
@@ -79,5 +91,5 @@ const authSlice = createSlice({
   }
 });
 
-export const { setSelfieUploaded, logout, clearError } = authSlice.actions;
+export const { setUser, setSelfieUploaded, logout, clearError, setLoading, setError } = authSlice.actions;
 export default authSlice.reducer;
