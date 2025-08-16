@@ -1,4 +1,4 @@
-// src/theme/index.ts - FIXED THEME
+// src/theme/index.ts - COMPLETE THEME WITH SHADOWS
 export const colors = {
   primary: '#FF3B30',
   secondary: '#8E8E93',
@@ -51,7 +51,6 @@ export const borderRadius = {
   xl: 16
 };
 
-// FIXED: Convert "large" to actual numeric values
 export const buttonSizes = {
   small: {
     paddingVertical: 8,
@@ -71,4 +70,39 @@ export const buttonSizes = {
     fontSize: 18,
     height: 52
   }
+};
+
+// ADD THIS: Missing shadows export
+export const shadows = {
+  small: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  medium: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  large: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+};
+
+// Optional: Export everything as default theme object
+export default {
+  colors,
+  typography,
+  spacing,
+  borderRadius,
+  buttonSizes,
+  shadows
 };

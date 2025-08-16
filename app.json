@@ -1,39 +1,37 @@
 {
-"expo": {
-  "name": "AI Party Game",
-  "slug": "ai-party-game",
-  "version": "1.0.0",
-  "orientation": "portrait",
-  "userInterfaceStyle": "dark",
-  "assetBundlePatterns": [
-    "**/*"
-  ],
-  "ios": {
-    "supportsTablet": true,
-    "bundleIdentifier": "com.yourcompany.aipartygame",
-    "buildNumber": "1",
-    "infoPlist": {
-      "NSCameraUsageDescription": "This app uses the camera to capture selfies for AI image generation.",
-      "NSPhotoLibraryUsageDescription": "This app accesses your photo library to select selfies and save generated images.",
-      "NSPhotoLibraryAddUsageDescription": "This app saves generated images to your photo library.",
-      "NSMicrophoneUsageDescription": "This app uses the microphone for voice chat features.",
-      "UIBackgroundModes": ["remote-notification"]
-    }
-  },
-  "plugins": [
-    [
-      "expo-image-picker",
-      {
-        "photosPermission": "The app accesses your photos to let you share them with your friends and use them for AI image generation."
+  "expo": {
+    "name": "AI Party Game",
+    "slug": "ai-party-game",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.yourcompany.aipartygame",
+      "buildNumber": "1",
+      "infoPlist": {
+        "NSCameraUsageDescription": "This app uses the camera to capture selfies for AI image generation.",
+        "NSPhotoLibraryUsageDescription": "This app accesses your photo library to select selfies and save generated images.",
+        "NSPhotoLibraryAddUsageDescription": "This app saves generated images to your photo library.",
+        "NSMicrophoneUsageDescription": "This app uses the microphone for voice chat features.",
+        "UIBackgroundModes": ["remote-notification"]
       }
-    ],
-    [
-      "expo-camera",
-      {
-        "cameraPermission": "The app needs access to your camera to capture selfies for AI image generation."
-      }
-    ],
-    "expo-apple-authentication"
-  ]
-}
+    },
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "The app accesses your photos to let you share them with your friends and use them for AI image generation."
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "The app needs access to your camera to capture selfies for AI image generation."
+        }
+      ],
+      "expo-apple-authentication"
+    ]
+  }
 }
