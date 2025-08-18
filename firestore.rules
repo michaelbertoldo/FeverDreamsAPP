@@ -1,9 +1,73 @@
+// Firestore Security Rules for AI Party Game
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if false;
+    
+    // Users collection - users can read/write their own data
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Games collection - authenticated users can read/write games they're part of
+    match /games/{gameId} {
+      allow create: if request.auth != null;
+      allow read: if request.auth != null && 
+        (request.auth.uid in resource.data.players || 
+         request.auth.uid == resource.data.hostId);
+      allow update: if request.auth != null && 
+        (request.auth.uid in resource.data.players || 
+         request.auth.uid == resource.data.hostId);
+      allow delete: if request.auth != null && 
+        request.auth.uid == resource.data.hostId;
+    }
+    
+    // Game submissions collection - for AI generated images and votes
+    match /games/{gameId}/submissions/{submissionId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && 
+        request.auth.uid == request.resource.data.playerId;
+      allow update: if request.auth != null;
+    }
+    
+    // Game rounds collection
+    match /games/{gameId}/rounds/{roundId} {
+      allow read: if request.auth != null;
+      allow create, update: if request.auth != null;
+    }
+    
+    // Prompts collection - readable by authenticated users
+    match /prompts/{promptId} {
+      allow read: if request.auth != null;
+      allow write: if false; // Only backend can write prompts
+    }
+    
+    // Allow reading of game statistics and leaderboards
+    match /statistics/{statId} {
+      allow read: if request.auth != null;
+      allow write: if false; // Only backend can write stats
+    }
+  }
+}
+
+// Firebase Storage Rules for selfies and generated images
+// Add this to your Firebase Storage rules
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Selfies - users can upload and read their own selfies
+    match /selfies/{userId}/{filename} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Generated images - authenticated users can read, only system can write
+    match /generated-images/{gameId}/{filename} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null; // Allow during game generation
+    }
+    
+    // Shared images - publicly readable for sharing
+    match /shared-images/{filename} {
+      allow read: if true;
+      allow write: if request.auth != null;
     }
   }
 }

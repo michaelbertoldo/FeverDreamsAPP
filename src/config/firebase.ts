@@ -22,7 +22,9 @@ const app = initializeApp(firebaseConfig);
 // Initialize services
 export const auth = getAuth(app);
 export const db = getFirestore(app);
-export const storage = getStorage(app);
+// Explicitly bind Storage to the default bucket URL to avoid env mismatches
+const storageBucketUrl = `gs://${firebaseConfig.storageBucket}`;
+export const storage = getStorage(app, storageBucketUrl);
 
 // Initialize Analytics only if supported
 export const initializeAnalytics = async () => {

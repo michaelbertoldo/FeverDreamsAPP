@@ -7,6 +7,7 @@ import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'fire
 import { auth } from '../config/firebase';
 import { setUser } from '../store/slices/authSlice';
 import { AppDispatch } from '../store';
+import { createUserProfile } from '../services/authServices';
 
 const SignInScreen = () => {
   const navigation = useNavigation();
@@ -38,6 +39,8 @@ const SignInScreen = () => {
         email: user.email,
         displayName: user.displayName || 'Player',
       }));
+
+      await createUserProfile(user.uid, user.email || 'Player', user.displayName || 'Player');
 
       navigation.navigate('Selfie' as never);
     } catch (error: any) {

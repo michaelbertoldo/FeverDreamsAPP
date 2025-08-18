@@ -4,7 +4,7 @@ import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useDispatch } from 'react-redux';
 import { SelfieCapture } from '../components/SelfieCapture';
-import { uploadSelfieToCloudinary } from '../services/selfieService';
+import { uploadSelfieToFirebase } from '../services/selfieService';
 import { setSelfieUploaded } from '../store/slices/authSlice';
 import Animated, { 
   FadeIn, 
@@ -23,8 +23,8 @@ export default function SelfieScreen() {
       setUploading(true);
       setError(null);
       
-      // Upload selfie to Cloudinary
-      await uploadSelfieToCloudinary(uri);
+      // Upload selfie to Firebase Storage
+      await uploadSelfieToFirebase(uri);
       
       // Update Redux state
       dispatch(setSelfieUploaded(true));

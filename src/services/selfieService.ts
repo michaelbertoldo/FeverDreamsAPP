@@ -2,8 +2,8 @@
 import * as FileSystem from 'expo-file-system';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { auth, db, storage } from '../config/firebase';
-import { doc, updateDoc } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { doc, updateDoc, getDoc, setDoc, Timestamp } from 'firebase/firestore';
+import { ref, getDownloadURL, uploadBytes, uploadString } from 'firebase/storage';
 
 // Process selfie locally before upload
 export const processSelfie = async (uri: string): Promise<string> => {
@@ -48,26 +48,112 @@ export const getCloudinarySignature = async () => {
   };
 };
 
+// Upload selfie to Firebase Storage (dedicated function)
+export const uploadSelfieToFirebase = async (uri: string): Promise<string> => {
+  try {
+    const processedUri = await processSelfie(uri);
+    
+    // Convert URI to blob
+    const response = await fetch(processedUri);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch image: ${response.status}`);
+    }
+    const blob = await response.blob();
+    
+    // Get current user
+    const userId = auth.currentUser?.uid;
+    if (!userId) throw new Error('User not authenticated');
+    
+    // Create storage reference with unique filename
+    const selfieRef = ref(storage, `selfies/${userId}/${generateUniqueId()}.jpg`);
+    
+    // Upload file
+    await uploadBytes(selfieRef, blob);
+    
+    // Get download URL
+    const downloadURL = await getDownloadURL(selfieRef);
+    
+    // Update user profile in Firestore with selfie URL
+    await updateUserSelfie(userId, downloadURL);
+    
+    return downloadURL;
+  } catch (error) {
+    console.error('Error uploading selfie to Firebase:', error);
+    throw error;
+  }
+};
+
 // Upload selfie to Cloudinary (using Firebase Storage as intermediary for now)
 export const uploadSelfieToCloudinary = async (uri: string): Promise<string> => {
   try {
     const processedUri = await processSelfie(uri);
-    
-    // In a real implementation, you would:
-    // 1. Get a signed upload URL from your backend
-    // 2. Upload directly to Cloudinary from the client
-    // For demo purposes, we'll use Firebase Storage as an intermediary
-    
-    // Convert URI to blob
-    const response = await fetch(processedUri);
-    const blob = await response.blob();
-    
-    // Upload to Firebase Storage first (temporary)
     const userId = auth.currentUser?.uid;
     if (!userId) throw new Error('User not authenticated');
+
+    // Read base64 once for potential Cloudinary upload and Firebase data_url
+    const base64 = await FileSystem.readAsStringAsync(processedUri, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
     
+    // Prefer direct Cloudinary upload if configured (more robust on RN)
+    const cloudName = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME;
+    const uploadPreset = process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
+    if (cloudName && uploadPreset) {
+      try {
+        const dataUrl = `data:image/jpeg;base64,${base64}`;
+        const form = new FormData();
+        form.append('file', dataUrl as any);
+        form.append('upload_preset', uploadPreset as string);
+        form.append('public_id', `selfies/${userId}/${generateUniqueId()}`);
+        const cloudinaryUrl = `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`;
+        const res = await fetch(cloudinaryUrl, {
+          method: 'POST',
+          body: form as any,
+        });
+        const json = await res.json();
+        if (!res.ok) {
+          throw new Error(`Cloudinary upload failed: ${JSON.stringify(json)}`);
+        }
+        const secureUrl: string | undefined = json.secure_url;
+        if (secureUrl) {
+          await updateUserSelfie(userId, secureUrl);
+          return secureUrl;
+        }
+      } catch (cloudErr) {
+        console.warn('Cloudinary upload failed, falling back to Firebase Storage:', cloudErr);
+      }
+    }
+    
+    // Prepare references and metadata for Firebase fallback
     const selfieRef = ref(storage, `selfies/${userId}/${generateUniqueId()}.jpg`);
-    await uploadBytes(selfieRef, blob);
+    const metadata = {
+      contentType: 'image/jpeg',
+      cacheControl: 'public, max-age=31536000',
+    } as const;
+
+    console.log('Firebase Storage fallback - Storage ref:', selfieRef.toString());
+    console.log('Firebase Storage fallback - User ID:', userId);
+    console.log('Firebase Storage fallback - Storage instance:', storage ? 'Available' : 'Missing');
+
+    // Attempt upload via data URL first (robust in RN/Expo)
+    try {
+      const dataUrl = `data:image/jpeg;base64,${base64}`;
+      await uploadString(selfieRef, dataUrl, 'data_url', metadata);
+    } catch (primaryError: any) {
+      console.log('Data URL upload failed, trying Blob upload:', primaryError);
+      // Fallback to Blob upload
+      try {
+        const response = await fetch(processedUri);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch image: ${response.status}`);
+        }
+        const blob = await response.blob();
+        await uploadBytes(selfieRef, blob, metadata);
+      } catch (blobError: any) {
+        console.error('Blob upload also failed:', blobError);
+        throw new Error(`Both upload methods failed. Data URL: ${primaryError?.message || 'Unknown error'}, Blob: ${blobError?.message || 'Unknown error'}`);
+      }
+    }
     
     // Get download URL
     const downloadURL = await getDownloadURL(selfieRef);
@@ -83,7 +169,15 @@ export const uploadSelfieToCloudinary = async (uri: string): Promise<string> => 
     
     return downloadURL;
   } catch (error) {
-    console.error('Error uploading selfie:', error);
+    if (error && typeof error === 'object') {
+      const anyErr = error as any;
+      const code = anyErr.code || 'unknown';
+      const message = anyErr.message || 'Unknown error';
+      const serverResponse = anyErr.customData?.serverResponse || '';
+      console.error('Error uploading selfie:', { code, message, serverResponse });
+    } else {
+      console.error('Error uploading selfie:', error);
+    }
     throw error;
   }
 };
@@ -92,26 +186,47 @@ export const uploadSelfieToCloudinary = async (uri: string): Promise<string> => 
 export const updateUserSelfie = async (userId: string, selfieUrl: string): Promise<void> => {
   try {
     const userRef = doc(db, 'users', userId);
-    await updateDoc(userRef, {
-      selfieUrl,
-      selfieProcessed: true,
-      lastActive: new Date()
-    });
+    
+    // Check if user document exists, create it if it doesn't
+    const userSnapshot = await getDoc(userRef);
+    if (!userSnapshot.exists()) {
+      // Create basic user document if it doesn't exist
+      await setDoc(userRef, {
+        userId,
+        displayName: 'Player',
+        email: '',
+        selfieUrl,
+        selfieProcessed: true,
+        gamesPlayed: 0,
+        totalScore: 0,
+        createdAt: Timestamp.now(),
+        lastActive: Timestamp.now()
+      });
+    } else {
+      // Update existing user document
+      await updateDoc(userRef, {
+        selfieUrl,
+        selfieProcessed: true,
+        lastActive: Timestamp.now()
+      });
+    }
   } catch (error) {
     console.error('Error updating user selfie:', error);
     throw error;
   }
 };
 
-// Get user selfie URL
-export const getUserSelfie = async (userId: string): Promise<string | null> => {
+// Get user's selfie URL
+export const getUserSelfie = async (): Promise<string | null> => {
   try {
-    // In a real app, you would:
-    // 1. Get the selfie URL from Firestore
-    // 2. Generate a signed URL with short expiration for security
+    const userId = auth.currentUser?.uid;
+    if (!userId) return null;
     
-    // For demo purposes, we'll return a simulated URL
-    return `https://res.cloudinary.com/your-cloud/image/upload/v1/${userId}/selfie.jpg`;
+    // In a real app, you'd get this from Firestore user document
+    const selfieRef = ref(storage, `selfies/${userId}/profile.jpg`);
+    const downloadURL = await getDownloadURL(selfieRef);
+    
+    return downloadURL;
   } catch (error) {
     console.error('Error getting user selfie:', error);
     return null;
