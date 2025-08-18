@@ -139,14 +139,13 @@ export const SelfieCapture: React.FC<SelfieCaptureProps> = ({ onCapture }) => {
             ref={cameraRef}
             style={styles.camera}
             facing={facing}
-          >
-            <View style={styles.cameraContent}>
-              <Animated.View style={outlineStyle} />
-              <Text style={styles.instructionText}>
-                Position your face within the outline
-              </Text>
-            </View>
-          </CameraView>
+          />
+          <View pointerEvents="none" style={styles.overlay}>
+            <Animated.View style={outlineStyle} />
+            <Text style={styles.instructionText}>
+              Position your face within the outline
+            </Text>
+          </View>
           <View style={styles.buttonRow}>
             <TouchableOpacity style={styles.button} onPress={pickImage}>
               <Text style={styles.buttonText}>Choose from Library</Text>
@@ -173,8 +172,12 @@ const styles = StyleSheet.create({
   camera: {
     flex: 1,
   },
-  cameraContent: {
-    flex: 1,
+  overlay: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
     backgroundColor: 'transparent',
     justifyContent: 'center',
     alignItems: 'center',

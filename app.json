@@ -5,7 +5,9 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.yourcompany.aipartygame",
@@ -15,7 +17,9 @@
         "NSPhotoLibraryUsageDescription": "This app accesses your photo library to select selfies and save generated images.",
         "NSPhotoLibraryAddUsageDescription": "This app saves generated images to your photo library.",
         "NSMicrophoneUsageDescription": "This app uses the microphone for voice chat features.",
-        "UIBackgroundModes": ["remote-notification"]
+        "UIBackgroundModes": [
+          "remote-notification"
+        ]
       }
     },
     "plugins": [
@@ -31,13 +35,14 @@
           "cameraPermission": "The app needs access to your camera to capture selfies for AI image generation."
         }
       ],
-      "expo-apple-authentication",
-      [
-        "@react-native-google-signin/google-signin",
-        {
-          "iosUrlScheme": "com.googleusercontent.apps.33080240494-6c8m39aqeasfb3n11r13vrjmeqddc0l7"
-        }
-      ]
-    ]
+      "expo-apple-authentication"
+    ],
+    "android": {
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.CAMERA"
+      ],
+      "package": "com.yourcompany.aipartygame"
+    }
   }
 }

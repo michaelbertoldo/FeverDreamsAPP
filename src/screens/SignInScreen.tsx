@@ -1,11 +1,9 @@
 // src/screens/SignInScreen.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useDispatch } from 'react-redux';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithCredential } from 'firebase/auth';
-import { GoogleSignin, GoogleSigninButton } from '@react-native-google-signin/google-signin';
-import { GoogleAuthProvider } from 'firebase/auth';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../config/firebase';
 import { setUser } from '../store/slices/authSlice';
 import { AppDispatch } from '../store';
@@ -18,13 +16,7 @@ const SignInScreen = () => {
   const [password, setPassword] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
 
-  useEffect(() => {
-    GoogleSignin.configure({
-      webClientId: '33080240494-6c8m39aqeasfb3n11r13vrjmeqddc0l7.apps.googleusercontent.com', 
-    });
-  }, []);
-
-  const handleEmailAuth = async () => {
+  const handleAuth = async () => {
     if (!email || !password) {
       Alert.alert('Error', 'Please enter email and password');
       return;
@@ -49,39 +41,8 @@ const SignInScreen = () => {
 
       navigation.navigate('Selfie' as never);
     } catch (error: any) {
-      console.error('Email Auth error:', error);
+      console.error('Auth error:', error);
       Alert.alert('Authentication Error', error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleGoogleSignIn = async () => {
-    try {
-      setLoading(true);
-      await GoogleSignin.hasPlayServices();
-      const response = await GoogleSignin.signIn();
-      
-      const idToken = response.data?.idToken;
-      
-      if (!idToken) {
-        throw new Error('No ID token received from Google');
-      }
-      
-      const googleCredential = GoogleAuthProvider.credential(idToken);
-      const userCredential = await signInWithCredential(auth, googleCredential);
-      
-      const user = userCredential.user;
-      dispatch(setUser({
-        uid: user.uid,
-        email: user.email,
-        displayName: user.displayName || 'Player',
-      }));
-
-      navigation.navigate('Selfie' as never);
-    } catch (error: any) {
-      console.error('Google Sign-In error:', error);
-      Alert.alert('Google Sign-In Error', error.message);
     } finally {
       setLoading(false);
     }
@@ -93,16 +54,6 @@ const SignInScreen = () => {
       <Text style={styles.subtitle}>
         {isSignUp ? 'Create an account to start playing' : 'Sign in to start playing'}
       </Text>
-      
-      <GoogleSigninButton
-        style={styles.googleButton}
-        size={GoogleSigninButton.Size.Wide}
-        color={GoogleSigninButton.Color.Dark}
-        onPress={handleGoogleSignIn}
-        disabled={loading}
-      />
-      
-      <Text style={styles.orText}>or</Text>
       
       <TextInput
         style={styles.input}
@@ -125,7 +76,7 @@ const SignInScreen = () => {
       
       <TouchableOpacity 
         style={[styles.authButton, loading && styles.disabled]}
-        onPress={handleEmailAuth}
+        onPress={handleAuth}
         disabled={loading}
       >
         <Text style={styles.authButtonText}>
@@ -164,17 +115,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: '#ccc',
     textAlign: 'center',
-    marginBottom: 40,
-  },
-  googleButton: {
-    width: 200,
-    height: 48,
-    marginBottom: 20,
-  },
-  orText: {
-    color: '#ccc',
-    fontSize: 16,
-    marginBottom: 20,
+    marginBottom: 50,
   },
   input: {
     width: '100%',
