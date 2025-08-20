@@ -1,290 +1,244 @@
-// src/screens/ResultsScreen.tsx - Fixed
+// src/screens/ResultsScreen.tsx - Basic Implementation
 import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
   StyleSheet, 
-  SafeAreaView,
-  ScrollView,
-  Share,
-  TouchableOpacity
+  TouchableOpacity, 
+  SafeAreaView, 
+  ScrollView, 
+  Image, 
+  Alert 
 } from 'react-native';
-import { Image } from 'expo-image';
-import { useSelector } from 'react-redux';
-import Animated, { 
-  FadeIn, 
-  FadeOut, 
-  SlideInUp,
-  ZoomIn,
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  withTiming,
-  withSequence,
-  withDelay,
-  withRepeat
-} from 'react-native-reanimated';
+import { useSelector, useDispatch } from 'react-redux';
+import Animated, { FadeIn, SlideInUp, ZoomIn, useSharedValue, useAnimatedStyle, withSpring, withSequence } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
-import { AnimatedButton } from '../components/ui/AnimatedButton';
-import { AnimatedCard } from '../components/ui/AnimatedCard';
-import { ConfettiEffect } from '../components/ui/ConfettiEffect';
-import { saveWinningImage } from '../services/gameService';
 import { RootState } from '../store';
-import { colors, typography, spacing, borderRadius } from '../theme';
+import { resetGame, startTestGame } from '../store/slices/gameSlice';
+import { useNavigation } from '@react-navigation/native';
+
+// Mock results data
+const MOCK_RESULTS = [
+  {
+    id: 'sub_1',
+    imageUrl: 'https://picsum.photos/300/300?random=1',
+    playerName: 'Player 1',
+    votes: 3,
+    place: 1,
+  },
+  {
+    id: 'sub_2',
+    imageUrl: 'https://picsum.photos/300/300?random=2', 
+    playerName: 'Player 2',
+    votes: 2,
+    place: 2,
+  },
+  {
+    id: 'sub_3',
+    imageUrl: 'https://picsum.photos/300/300?random=3',
+    playerName: 'Player 3', 
+    votes: 1,
+    place: 3,
+  },
+];
 
 export default function ResultsScreen() {
-  const [showConfetti, setShowConfetti] = useState(true);
-  const [savedImage, setSavedImage] = useState(false);
+  const [showConfetti, setShowConfetti] = useState(false);
   
-  // Get results data from Redux
-  const { 
-    gameId,
-    roundResults,
-    gameResults,
-    players,
-    status
-  } = useSelector((state: RootState) => state.game);
+  const navigation = useNavigation();
+  const dispatch = useDispatch();
   
-  const isGameComplete = status === 'completed';
+  const { currentRound, status } = useSelector((state: RootState) => state.game);
+  
+  // Auto-navigate based on game status
+  useEffect(() => {
+    if (status === 'waiting') {
+      console.log('🎮 Game status changed to waiting, navigating back to main app...');
+      // Navigation will be handled by AppNavigator based on Redux state
+    }
+  }, [status, navigation]);
   
   // Animation values
-  const headerScale = useSharedValue(0.8);
-  const scoreScale = useSharedValue(1);
+  const crownScale = useSharedValue(0);
   
-  // Start animations
   useEffect(() => {
-    // Header animation
-    headerScale.value = withDelay(
-      500,
-      withSpring(1, { damping: 12, stiffness: 100 })
+    // Trigger confetti animation
+    setShowConfetti(true);
+    
+    // Animate crown
+    crownScale.value = withSequence(
+      withSpring(1.2, { damping: 10, stiffness: 200 }),
+      withSpring(1, { damping: 10, stiffness: 200 })
     );
-    
-    // Score animation - fixed withRepeat usage
-    scoreScale.value = withRepeat(
-      withSequence(
-        withTiming(1.05, { duration: 500 }),
-        withTiming(1, { duration: 500 })
-      ),
-      3,  // repeat 3 times
-      false  // don't reverse
-    );
-    
-    // Hide confetti after 5 seconds
-    const timeout = setTimeout(() => {
-      setShowConfetti(false);
-    }, 5000);
-    
-    return () => clearTimeout(timeout);
   }, []);
-  
-  // Animated styles
-  const headerStyle = useAnimatedStyle(() => {
+
+  const crownStyle = useAnimatedStyle(() => {
     return {
-      transform: [{ scale: headerScale.value }]
+      transform: [{ scale: crownScale.value }]
     };
   });
-  
-  const scoreStyle = useAnimatedStyle(() => {
-    return {
-      transform: [{ scale: scoreScale.value }]
-    };
-  });
-  
-  // Get winner data
-  const getWinnerData = () => {
-    if (isGameComplete && gameResults?.winner) {
-      return gameResults.winner;
+
+  const getPlaceEmoji = (place: number) => {
+    switch (place) {
+      case 1: return '🥇';
+      case 2: return '🥈'; 
+      case 3: return '🥉';
+      default: return '🏆';
     }
-    
-    if (roundResults) {
-      // Find player with highest round score
-      let highestScore = -1;
-      let roundWinner = null;
-      
-      Object.entries(roundResults.scores).forEach(([playerId, scoreData]) => {
-        if (scoreData.roundScore > highestScore) {
-          highestScore = scoreData.roundScore;
-          roundWinner = {
-            playerId,
-            displayName: players[playerId]?.displayName || 'Unknown Player',
-            score: highestScore
-          };
+  };
+
+  const getPlaceColor = (place: number) => {
+    switch (place) {
+      case 1: return '#FFD700';
+      case 2: return '#C0C0C0';
+      case 3: return '#CD7F32';
+      default: return '#666';
+    }
+  };
+
+  const handleNextRound = () => {
+    Alert.alert(
+      'Next Round?',
+      'Ready for another round of hilarious AI images?',
+      [
+        {
+          text: 'Yes!',
+          onPress: () => {
+            console.log('🎮 Starting next round...');
+            dispatch(startTestGame());
+          }
+        },
+        {
+          text: 'End Game',
+          style: 'destructive',
+          onPress: () => {
+            dispatch(resetGame());
+          }
         }
-      });
+      ]
+    );
+  };
+
+  const handleLeaveGame = () => {
+    Alert.alert(
+      'Leave Game?',
+      'Are you sure you want to leave the game? This action cannot be undone.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Leave',
+          style: 'destructive',
+          onPress: () => {
+            console.log('🚪 Leaving game...');
+            dispatch(resetGame());
+            // Navigation will be handled automatically by AppNavigator
+          }
+        }
+      ]
+    );
+  };
+
+  const renderResult = (result: typeof MOCK_RESULTS[0], index: number) => (
+    <Animated.View 
+      key={result.id}
+      entering={SlideInUp.delay(index * 200 + 500).duration(500)}
+      style={[
+        styles.resultCard,
+        result.place === 1 && styles.winnerCard
+      ]}
+    >
+      {result.place === 1 && (
+        <Animated.View style={[styles.crown, crownStyle]}>
+          <Text style={styles.crownText}>👑</Text>
+        </Animated.View>
+      )}
       
-      return roundWinner;
-    }
-    
-    return null;
-  };
-  
-  const winner = getWinnerData();
-  
-  // Get winning image
-  const getWinningImage = () => {
-    // This would require additional logic to find the highest voted submission
-    // For demo purposes, we'll return a placeholder
-    return 'https://via.placeholder.com/400';
-  };
-  
-  const winningImage = getWinningImage();
-  
-  // Share winning image
-  const handleShareImage = async () => {
-    try {
-      await Share.share({
-        message: `Check out this winning image from my AI Party Game!`,
-        url: winningImage
-      });
-    } catch (error) {
-      console.error('Error sharing image:', error);
-    }
-  };
-  
-  // Save winning image
-  const handleSaveImage = async () => {
-    try {
-      if (!gameId) return;
+      <View style={styles.placeContainer}>
+        <Text style={[styles.placeEmoji, { color: getPlaceColor(result.place) }]}>
+          {getPlaceEmoji(result.place)}
+        </Text>
+        <Text style={[styles.placeText, { color: getPlaceColor(result.place) }]}>
+          {result.place === 1 ? 'Winner!' : `${result.place}${result.place === 2 ? 'nd' : 'rd'} Place`}
+        </Text>
+      </View>
       
-      await saveWinningImage(gameId, winningImage);
-      setSavedImage(true);
-    } catch (error) {
-      console.error('Error saving image:', error);
-    }
-  };
-  
+      <Image 
+        source={{ uri: result.imageUrl }}
+        style={styles.resultImage}
+      />
+      
+      <View style={styles.resultInfo}>
+        <Text style={styles.playerName}>{result.playerName}</Text>
+        <Text style={styles.voteCount}>🗳️ {result.votes} votes</Text>
+      </View>
+    </Animated.View>
+  );
+
   return (
     <SafeAreaView style={styles.container}>
       {showConfetti && (
-        <ConfettiEffect 
-          count={150}
-          duration={5000}
-          onComplete={() => setShowConfetti(false)}
-        />
+        <View style={styles.confettiContainer}>
+          <Text style={styles.confettiText}>🎉</Text>
+        </View>
       )}
       
-      <Animated.View 
-        style={[styles.header, headerStyle]}
-      >
-        <Text style={styles.title}>
-          {isGameComplete ? 'Game Complete!' : `Round ${roundResults?.round} Results`}
-        </Text>
+      {/* Header with Back Button */}
+      <Animated.View entering={FadeIn.duration(500)} style={styles.header}>
+        <TouchableOpacity style={styles.backButton} onPress={handleLeaveGame}>
+          <Ionicons name="close-circle" size={28} color="#ccc" />
+        </TouchableOpacity>
+        
+        <View style={styles.headerCenter}>
+          <Text style={styles.roundText}>Round {currentRound} Results</Text>
+          <Text style={styles.title}>🏆 The Winners!</Text>
+        </View>
+        
+        <View style={styles.headerRight} />
       </Animated.View>
-      
+
       <ScrollView 
-        style={styles.content}
-        contentContainerStyle={styles.scrollContent}
+        style={styles.resultsContainer}
+        contentContainerStyle={styles.resultsContent}
         showsVerticalScrollIndicator={false}
       >
-        {winner && (
-          <Animated.View entering={ZoomIn.delay(800).duration(500)}>
-            <AnimatedCard animation="bounce" style={styles.winnerCard}>
-              <View style={styles.winnerHeader}>
-                <Ionicons name="trophy" size={32} color={colors.tertiary} />
-                <Text style={styles.winnerTitle}>
-                  {isGameComplete ? 'Game Winner' : 'Round Winner'}
-                </Text>
-              </View>
-              
-              <Text style={styles.winnerName}>{winner.displayName}</Text>
-              
-              <Animated.View style={[styles.scoreContainer, scoreStyle]}>
-                <Text style={styles.scoreValue}>{winner.score}</Text>
-                <Text style={styles.scoreLabel}>points</Text>
-              </Animated.View>
-            </AnimatedCard>
-          </Animated.View>
-        )}
+        {MOCK_RESULTS.map(renderResult)}
         
-        <Animated.View entering={SlideInUp.delay(1200).duration(500)}>
-          <AnimatedCard animation="fade" delay={1500} style={styles.imageCard}>
-            <Text style={styles.imageTitle}>Winning Image</Text>
-            
-            <Image
-              source={{ uri: winningImage }}
-              style={styles.winningImage}
-              contentFit="cover"
-              transition={500}
-            />
-            
-            <View style={styles.imageActions}>
-              <AnimatedButton
-                text="Share"
-                variant="outline"
-                size="medium"
-                onPress={handleShareImage}
-                icon={<Ionicons name="share-outline" size={20} color={colors.primary} />}
-                iconPosition="left"
-                style={styles.actionButton}
-              />
-              
-              <AnimatedButton
-                text={savedImage ? "Saved" : "Save"}
-                variant={savedImage ? "secondary" : "outline"}  // Fixed: changed "success" to "secondary"
-                size="medium"
-                onPress={handleSaveImage}
-                disabled={savedImage}
-                icon={
-                  <Ionicons 
-                    name={savedImage ? "checkmark-circle" : "bookmark-outline"} 
-                    size={20} 
-                    color={savedImage ? colors.text.primary : colors.primary} 
-                  />
-                }
-                iconPosition="left"
-                style={styles.actionButton}
-              />
-            </View>
-          </AnimatedCard>
-        </Animated.View>
-        
-        <Animated.View entering={FadeIn.delay(2000).duration(500)}>
-          <Text style={styles.scoresTitle}>All Scores</Text>
+        <Animated.View 
+          entering={FadeIn.delay(1500).duration(500)}
+          style={styles.actionContainer}
+        >
+          <TouchableOpacity 
+            style={styles.nextButton}
+            onPress={handleNextRound}
+          >
+            <Text style={styles.nextButtonText}>🎮 Next Round</Text>
+          </TouchableOpacity>
           
-          {Object.entries(isGameComplete ? gameResults?.scores || {} : roundResults?.scores || {})
-            .sort(([, a], [, b]) => (b.totalScore || b.score) - (a.totalScore || a.score))
-            .map(([playerId, scoreData], index) => (
-              <AnimatedCard 
-                key={playerId}
-                animation="slide"
-                delay={2200 + index * 100}
-                style={styles.scoreCard}
-              >
-                <View style={styles.scoreRow}>
-                  <View style={styles.playerInfo}>
-                    <Text style={styles.playerRank}>#{index + 1}</Text>
-                    <Text style={styles.playerName}>
-                      {players[playerId]?.displayName || 'Unknown Player'}
-                    </Text>
-                  </View>
-                  
-                  <View style={styles.playerScores}>
-                    {!isGameComplete && (
-                      <Text style={styles.roundScore}>
-                        +{(scoreData as any).roundScore}
-                      </Text>
-                    )}
-                    <Text style={styles.totalScore}>
-                      {isGameComplete ? (scoreData as any).score : (scoreData as any).totalScore}
-                    </Text>
-                  </View>
-                </View>
-              </AnimatedCard>
-            ))}
+          <TouchableOpacity 
+            style={styles.endButton}
+            onPress={() => {
+              console.log('🏁 Ending game...');
+              dispatch(resetGame());
+              // Navigation will be handled automatically by AppNavigator
+            }}
+          >
+            <Text style={styles.endButtonText}>🏁 End Game</Text>
+          </TouchableOpacity>
         </Animated.View>
+        
+        <View style={styles.statsContainer}>
+          <Text style={styles.statsTitle}>🎭 Round Stats</Text>
+          <Text style={styles.statsText}>
+            • Total votes cast: {MOCK_RESULTS.reduce((sum, r) => sum + r.votes, 0)}{'\n'}
+            • Funniest moment: Player 1's superhero image{'\n'}
+            • Most creative: Player 2's disco fever{'\n'}
+            • Best laugh: Player 3's unexpected twist
+          </Text>
+        </View>
       </ScrollView>
-      
-      <View style={styles.footer}>
-        <AnimatedButton
-          text={isGameComplete ? "Back to Lobby" : "Continue to Next Round"}
-          variant="primary"
-          size="medium"
-          onPress={() => {
-            // Navigation logic would go here
-          }}
-          style={styles.continueButton}
-        />
-      </View>
     </SafeAreaView>
   );
 }
@@ -292,130 +246,166 @@ export default function ResultsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background.primary,
+    backgroundColor: '#000',
+    padding: 20,
+  },
+  confettiContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    pointerEvents: 'none',
+    zIndex: 1,
+  },
+  confettiText: {
+    fontSize: 100,
+    opacity: 0.3,
   },
   header: {
-    padding: spacing.lg,
-    alignItems: 'center',
-  },
-  title: {
-    fontSize: typography.fontSize.xxxl,
-    fontWeight: 'bold',
-    color: colors.text.primary,
-    textAlign: 'center',
-  },
-  content: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: spacing.lg,
-    paddingBottom: spacing.xxl,
-  },
-  winnerCard: {
-    alignItems: 'center',
-    padding: spacing.lg,
-    marginBottom: spacing.lg,
-  },
-  winnerHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.md,
-  },
-  winnerTitle: {
-    fontSize: typography.fontSize.lg,
-    fontWeight: 'bold',
-    color: colors.tertiary,
-    marginLeft: spacing.sm,
-  },
-  winnerName: {
-    fontSize: typography.fontSize.xxl,
-    fontWeight: 'bold',
-    color: colors.text.primary,
-    marginBottom: spacing.md,
-  },
-  scoreContainer: {
-    alignItems: 'center',
-  },
-  scoreValue: {
-    fontSize: typography.fontSize.xxxl,
-    fontWeight: 'bold',
-    color: colors.primary,
-  },
-  scoreLabel: {
-    fontSize: typography.fontSize.md,
-    color: colors.text.tertiary,
-  },
-  imageCard: {
-    marginBottom: spacing.lg,
-  },
-  imageTitle: {
-    fontSize: typography.fontSize.lg,
-    fontWeight: 'bold',
-    color: colors.text.primary,
-    marginBottom: spacing.md,
-  },
-  winningImage: {
-    width: '100%',
-    height: 300,
-    borderRadius: borderRadius.md,
-    backgroundColor: colors.background.tertiary,
-  },
-  imageActions: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: spacing.md,
-  },
-  actionButton: {
-    marginHorizontal: spacing.xs,
-  },
-  scoresTitle: {
-    fontSize: typography.fontSize.xl,
-    fontWeight: 'bold',
-    color: colors.text.primary,
-    marginBottom: spacing.md,
-  },
-  scoreCard: {
-    marginBottom: spacing.md,
-  },
-  scoreRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    marginBottom: 30,
   },
-  playerInfo: {
-    flexDirection: 'row',
+  headerCenter: {
+    flex: 1,
     alignItems: 'center',
   },
-  playerRank: {
-    fontSize: typography.fontSize.lg,
+  headerRight: {
+    width: 50,
+  },
+  backButton: {
+    padding: 10,
+  },
+  backButtonText: {
+    color: 'white',
+    fontSize: 14,
+  },
+  roundText: {
+    color: '#FF3B30',
+    fontSize: 16,
     fontWeight: 'bold',
-    color: colors.text.tertiary,
-    width: 40,
+  },
+  title: {
+    color: 'white',
+    fontSize: 32,
+    fontWeight: 'bold',
+    marginTop: 5,
+  },
+  resultsContainer: {
+    flex: 1,
+  },
+  resultsContent: {
+    paddingBottom: 20,
+  },
+  resultCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 15,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  winnerCard: {
+    backgroundColor: 'rgba(255, 215, 0, 0.1)',
+    borderColor: 'rgba(255, 215, 0, 0.3)',
+    borderWidth: 2,
+  },
+  crown: {
+    position: 'absolute',
+    top: -15,
+    fontSize: 30,
+  },
+  crownText: {
+    fontSize: 30,
+  },
+  placeContainer: {
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  placeEmoji: {
+    fontSize: 40,
+    marginBottom: 5,
+  },
+  placeText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  resultImage: {
+    width: 200,
+    height: 200,
+    borderRadius: 15,
+    marginBottom: 15,
+  },
+  resultInfo: {
+    alignItems: 'center',
   },
   playerName: {
-    fontSize: typography.fontSize.md,
+    color: 'white',
+    fontSize: 20,
     fontWeight: 'bold',
-    color: colors.text.primary,
+    marginBottom: 5,
   },
-  playerScores: {
-    alignItems: 'flex-end',
+  voteCount: {
+    color: '#ccc',
+    fontSize: 16,
   },
-  roundScore: {
-    fontSize: typography.fontSize.sm,
-    color: colors.success,
+  actionContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 30,
+    marginBottom: 20,
+    gap: 15,
+  },
+  nextButton: {
+    flex: 1,
+    backgroundColor: '#FF3B30',
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+    borderRadius: 25,
+    alignItems: 'center',
+  },
+  nextButtonText: {
+    color: 'white',
+    fontSize: 16,
     fontWeight: 'bold',
   },
-  totalScore: {
-    fontSize: typography.fontSize.lg,
+  endButton: {
+    flex: 1,
+    backgroundColor: '#666',
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+    borderRadius: 25,
+    alignItems: 'center',
+  },
+  endButtonText: {
+    color: 'white',
+    fontSize: 16,
     fontWeight: 'bold',
-    color: colors.text.primary,
   },
-  footer: {
-    padding: spacing.lg,
-    borderTopWidth: 1,
-    borderTopColor: colors.background.tertiary,
+  statsContainer: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 15,
+    padding: 20,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
-  continueButton: {
-    width: '100%',
+  statsTitle: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  statsText: {
+    color: '#ccc',
+    fontSize: 14,
+    lineHeight: 22,
   },
 });

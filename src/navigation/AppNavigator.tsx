@@ -1,3 +1,4 @@
+// src/navigation/AppNavigator.tsx - FIXED VERSION
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
@@ -5,14 +6,15 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { useSelector } from 'react-redux';
 
-// Auth Screens
-import WelcomeScreen from '../screens/WelcomeScreen';
-import SignInScreen from '../screens/SignInScreen';
+// Import the correct AuthNavigator that includes Profile screen
+import AuthNavigator from './AuthNavigator';
+
+// Auth Screens (for fallback stack)
 import SelfieScreen from '../screens/SelfieScreen';
+import ProfileScreen from '../screens/ProfileScreen';
 
 // Main Screens
 import HomeScreen from '../screens/HomeScreen';
-import ProfileScreen from '../screens/ProfileScreen';
 import GalleryScreen from '../screens/GalleryScreen';
 
 // Game Screens
@@ -27,22 +29,6 @@ import { RootState } from '../store';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
-
-// Auth Navigator
-const AuthNavigator = () => {
-  return (
-    <Stack.Navigator 
-      screenOptions={{ 
-        headerShown: false,
-        cardStyle: { backgroundColor: '#000' }
-      }}
-    >
-      <Stack.Screen name="Welcome" component={WelcomeScreen} />
-      <Stack.Screen name="SignIn" component={SignInScreen} />
-      <Stack.Screen name="Selfie" component={SelfieScreen} />
-    </Stack.Navigator>
-  );
-};
 
 // Main Tab Navigator
 const MainTabNavigator = () => {
@@ -82,6 +68,38 @@ const MainTabNavigator = () => {
 
 // Game Navigator
 const GameNavigator = () => {
+  const { status } = useSelector((state: RootState) => state.game);
+  console.log('🎮 GameNavigator - current status:', status);
+  
+  const renderGameScreen = () => {
+    switch (status) {
+      case 'waiting':
+        return <Stack.Screen name="GameLobby" component={GameLobbyScreen} />;
+      case 'playing':
+        return <Stack.Screen name="Prompt" component={PromptScreen} />;
+      case 'voting':
+        return <Stack.Screen name="Voting" component={VotingScreen} />;
+      case 'results':
+        return <Stack.Screen name="Results" component={ResultsScreen} />;
+      default:
+        return <Stack.Screen name="GameLobby" component={GameLobbyScreen} />;
+    }
+  };
+
+  return (
+    <Stack.Navigator
+      screenOptions={{
+        headerShown: false,
+        cardStyle: { backgroundColor: '#000' }
+      }}
+    >
+      {renderGameScreen()}
+    </Stack.Navigator>
+  );
+};
+
+// Onboarding Stack Navigator (for selfie/profile completion)
+const OnboardingNavigator = () => {
   return (
     <Stack.Navigator
       screenOptions={{ 
@@ -89,12 +107,8 @@ const GameNavigator = () => {
         cardStyle: { backgroundColor: '#000' }
       }}
     >
-      <Stack.Screen name="GameLobby" component={GameLobbyScreen} />
-      <Stack.Screen name="Prompt" component={PromptScreen} />
-      <Stack.Screen name="SubmitImage" component={SubmitImageScreen} />
-      <Stack.Screen name="WaitingForVotes" component={WaitingForVotesScreen} />
-      <Stack.Screen name="Voting" component={VotingScreen} />
-      <Stack.Screen name="Results" component={ResultsScreen} />
+      <Stack.Screen name="Selfie" component={SelfieScreen} />
+      <Stack.Screen name="Profile" component={ProfileScreen} />
     </Stack.Navigator>
   );
 };
@@ -107,24 +121,36 @@ const AppNavigator = () => {
   const user = authState?.user;
   const selfieUploaded = authState?.selfieUploaded || false;
   const gameId = gameState?.gameId;
+  const gameStatus = gameState?.status;
+  
+  console.log('🔍 Navigation State:', { 
+    hasUser: !!user, 
+    selfieUploaded, 
+    hasGameId: !!gameId,
+    gameStatus
+  });
   
   const getActiveNavigator = () => {
+    // Not authenticated - show auth flow
     if (!user) {
+      console.log('📱 Showing AuthNavigator (not authenticated)');
       return <AuthNavigator />;
     }
     
+    // Authenticated but no selfie - show onboarding flow with Profile screen
     if (!selfieUploaded) {
-      return (
-        <Stack.Navigator screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="Selfie" component={SelfieScreen} />
-        </Stack.Navigator>
-      );
+      console.log('📱 Showing OnboardingNavigator (selfie needed)');
+      return <OnboardingNavigator />;
     }
     
+    // In game - show game flow
     if (gameId) {
+      console.log('📱 Showing GameNavigator (in game, status:', gameStatus, ')');
       return <GameNavigator />;
     }
     
+    // Default - show main app
+    console.log('📱 Showing MainTabNavigator (main app)');
     return <MainTabNavigator />;
   };
   

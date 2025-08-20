@@ -1,20 +1,17 @@
-// src/screens/GameLobbyScreen.tsx - Fixed clipboard import
+// src/screens/GameLobbyScreen.tsx - FIXED VERSION
 import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
   StyleSheet, 
   SafeAreaView, 
-  FlatList,
-  Share,
+  TouchableOpacity,
   Alert
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
-import { useNavigation } from '@react-navigation/native';
 import { useSelector, useDispatch } from 'react-redux';
 import Animated, { 
   FadeIn, 
-  FadeOut, 
   SlideInUp,
   useSharedValue,
   useAnimatedStyle,
@@ -22,17 +19,12 @@ import Animated, {
   withTiming,
   Easing
 } from 'react-native-reanimated';
-import { Ionicons } from '@expo/vector-icons';
-import { AnimatedButton } from '../components/ui/AnimatedButton';
-import { AnimatedCard } from '../components/ui/AnimatedCard';
-import { setPlayerReady, startGame } from '../services/socketService';
 import { RootState } from '../store';
-import { colors, typography, spacing } from '../theme';
+import { startTestGame, addPlayer, setIsHost, updatePlayerReady } from '../store/slices/gameSlice';
 
 export default function GameLobbyScreen() {
-  const navigation = useNavigation();
-  const dispatch = useDispatch();
   const [copied, setCopied] = useState(false);
+  const dispatch = useDispatch();
   
   // Get game state from Redux
   const { 
@@ -42,11 +34,10 @@ export default function GameLobbyScreen() {
     isHost 
   } = useSelector((state: RootState) => state.game);
   
-  const userId = useSelector((state: RootState) => state.auth.user?.uid);
+  const { user } = useSelector((state: RootState) => state.auth);
   
   // Animation values
   const pulseValue = useSharedValue(1);
-  const rotateValue = useSharedValue(0);
   
   // Start pulse animation
   useEffect(() => {
@@ -55,13 +46,59 @@ export default function GameLobbyScreen() {
       -1,
       true
     );
-    
-    rotateValue.value = withRepeat(
-      withTiming(360, { duration: 10000, easing: Easing.linear }),
-      -1,
-      false
-    );
   }, []);
+
+  // Set up initial players and host status
+  useEffect(() => {
+    if (user && gameId) {
+      // Add current user as a player
+      dispatch(addPlayer({
+        playerId: user.uid,
+        displayName: user.displayName || 'You',
+        isHost: true
+      }));
+      
+      // Set as host
+      dispatch(setIsHost(true));
+      
+      // Mark current user as ready automatically for testing
+      dispatch(updatePlayerReady({
+        playerId: user.uid,
+        isReady: true
+      }));
+      
+      // Add some mock players for demo
+      setTimeout(() => {
+        dispatch(addPlayer({
+          playerId: 'demo_player_1',
+          displayName: 'Alice',
+          isHost: false
+        }));
+        // Auto-ready Alice after a short delay
+        setTimeout(() => {
+          dispatch(updatePlayerReady({
+            playerId: 'demo_player_1',
+            isReady: true
+          }));
+        }, 500);
+      }, 1000);
+      
+      setTimeout(() => {
+        dispatch(addPlayer({
+          playerId: 'demo_player_2', 
+          displayName: 'Bob',
+          isHost: false
+        }));
+        // Auto-ready Bob after a short delay
+        setTimeout(() => {
+          dispatch(updatePlayerReady({
+            playerId: 'demo_player_2',
+            isReady: true
+          }));
+        }, 500);
+      }, 2000);
+    }
+  }, [user, gameId, dispatch]);
   
   // Animated styles
   const pulseStyle = useAnimatedStyle(() => {
@@ -70,111 +107,74 @@ export default function GameLobbyScreen() {
     };
   });
   
-  const rotateStyle = useAnimatedStyle(() => {
-    return {
-      transform: [{ rotate: `${rotateValue.value}deg` }]
-    };
-  });
-  
-  // Share join code
-  const handleShareCode = async () => {
-    try {
-      await Share.share({
-        message: `Join my AI Party Game! Use code: ${joinCode}`,
-      });
-    } catch (error) {
-      console.error('Error sharing code:', error);
-    }
-  };
-  
   // Copy join code to clipboard
   const handleCopyCode = async () => {
-    try {
-      await Clipboard.setStringAsync(joinCode || '');
+    if (joinCode) {
+      await Clipboard.setStringAsync(joinCode);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch (error) {
-      console.error('Error copying to clipboard:', error);
     }
   };
-  
-  // Toggle ready status
+
+  // Toggle ready status for current user
   const handleToggleReady = () => {
-    if (!gameId || !userId) return;
+    if (!user?.uid) return;
     
-    const isCurrentlyReady = players[userId]?.isReady || false;
-    setPlayerReady(gameId, !isCurrentlyReady);
+    const currentPlayer = players[user.uid];
+    const newReadyStatus = !currentPlayer?.isReady;
+    
+    dispatch(updatePlayerReady({
+      playerId: user.uid,
+      isReady: newReadyStatus
+    }));
+    
+    console.log('🔄 Ready status toggled:', newReadyStatus);
   };
   
-  // Start the game (host only)
-  const handleStartGame = () => {
-    if (!gameId || !isHost) return;
-    
-    // Check if we have at least 2 players
+  // Start the game (test version)
+  const handleStartTestGame = () => {
     const playerCount = Object.keys(players).length;
-    if (playerCount < 2) {
+    const playersArray = Object.values(players);
+    const readyCount = playersArray.filter((p: any) => p.isReady).length;
+    
+    console.log('🎮 Start game check:', { playerCount, readyCount, players });
+    
+    // Need at least 2 ready players
+    if (readyCount < 2) {
       Alert.alert(
-        'Not Enough Players',
-        'You need at least 2 players to start the game.',
+        'Not Enough Ready Players',
+        `Need at least 2 ready players to start. Currently ${readyCount} ready.`,
         [{ text: 'OK' }]
       );
       return;
     }
-    
-    // Check if all players are ready
-    const allReady = Object.values(players).every(player => player.isReady);
-    if (!allReady) {
-      Alert.alert(
-        'Players Not Ready',
-        'All players must be ready to start the game.',
-        [{ text: 'OK' }]
-      );
-      return;
-    }
-    
-    // Start the game
-    startGame(gameId);
-  };
-  
-  // Render player item
-  const renderPlayerItem = ({ item, index }: { item: any; index: number }) => {
-    const isCurrentUser = item.id === userId;
-    
-    return (
-      <AnimatedCard 
-        animation="slide" 
-        delay={200 * index}
-        style={styles.playerCard}
-      >
-        <View style={styles.playerRow}>
-          <View style={styles.playerInfo}>
-            <Text style={styles.playerName}>
-              {item.displayName} {isCurrentUser && '(You)'} {item.isHost && '👑'}
-            </Text>
-            {item.isReady ? (
-              <View style={styles.readyBadge}>
-                <Text style={styles.readyText}>Ready!</Text>
-              </View>
-            ) : (
-              <View style={styles.notReadyBadge}>
-                <Text style={styles.notReadyText}>Not Ready</Text>
-              </View>
-            )}
-          </View>
-          
-          {isCurrentUser && !isHost && (
-            <AnimatedButton
-              text={item.isReady ? 'Not Ready' : 'Ready'}
-              variant={item.isReady ? 'outline' : 'primary'}
-              size="small"
-              onPress={handleToggleReady}
-            />
-          )}
-        </View>
-      </AnimatedCard>
+
+    // Always allow start if we have enough ready players
+    Alert.alert(
+      'Start Game?',
+      `Ready to start with ${readyCount} players?`,
+      [
+        {
+          text: 'Let\'s Go! 🚀',
+          onPress: () => {
+            console.log('🚀 Starting game with ready players...');
+            // Force start the test game
+            dispatch(startTestGame());
+          }
+        },
+        {
+          text: 'Wait',
+          style: 'cancel'
+        }
+      ]
     );
   };
-  
+
+  // Check if current user is ready
+  const isCurrentUserReady = user?.uid ? players[user.uid]?.isReady : false;
+  const playerCount = Object.keys(players).length;
+  const readyCount = Object.values(players).filter((p: any) => p.isReady).length;
+
   return (
     <SafeAreaView style={styles.container}>
       <Animated.View 
@@ -182,30 +182,20 @@ export default function GameLobbyScreen() {
         style={styles.header}
       >
         <Text style={styles.title}>Game Lobby</Text>
-        <Animated.View style={[styles.codeContainer, pulseStyle]}>
-          <Text style={styles.codeLabel}>JOIN CODE</Text>
-          <Text style={styles.codeText}>{joinCode}</Text>
-          <View style={styles.codeActions}>
-            <AnimatedButton
-              text={copied ? 'Copied!' : 'Copy'}
-              variant="outline"
-              size="small"
+        {joinCode && (
+          <Animated.View style={[styles.codeContainer, pulseStyle]}>
+            <Text style={styles.codeLabel}>JOIN CODE</Text>
+            <Text style={styles.codeText}>{joinCode}</Text>
+            <TouchableOpacity
+              style={styles.copyButton}
               onPress={handleCopyCode}
-              icon={<Ionicons name="copy-outline" size={16} color={colors.primary} />}
-              iconPosition="left"
-              style={styles.codeButton}
-            />
-            <AnimatedButton
-              text="Share"
-              variant="outline"
-              size="small"
-              onPress={handleShareCode}
-              icon={<Ionicons name="share-outline" size={16} color={colors.primary} />}
-              iconPosition="left"
-              style={styles.codeButton}
-            />
-          </View>
-        </Animated.View>
+            >
+              <Text style={styles.copyButtonText}>
+                {copied ? '✅ Copied!' : '📋 Copy'}
+              </Text>
+            </TouchableOpacity>
+          </Animated.View>
+        )}
       </Animated.View>
       
       <Animated.View 
@@ -213,39 +203,117 @@ export default function GameLobbyScreen() {
         style={styles.content}
       >
         <View style={styles.playersHeader}>
-          <Text style={styles.playersTitle}>Players ({Object.keys(players).length}/8)</Text>
-          <Animated.View style={rotateStyle}>
-            <Ionicons name="people" size={24} color={colors.secondary} />
-          </Animated.View>
+          <Text style={styles.playersTitle}>
+            Players ({playerCount}/8)
+          </Text>
+          <Text style={styles.readyStatus}>
+            {readyCount}/{playerCount} Ready
+          </Text>
         </View>
         
-        <FlatList
-          data={Object.values(players)}
-          keyExtractor={(item: any) => item.id}
-          renderItem={renderPlayerItem}
-          contentContainerStyle={styles.playersList}
-          showsVerticalScrollIndicator={false}
-        />
+        <View style={styles.playersList}>
+          {Object.values(players).map((player: any) => (
+            <Animated.View 
+              key={player.id}
+              entering={FadeIn.duration(500)}
+              style={[
+                styles.playerCard,
+                player.isReady && styles.playerCardReady
+              ]}
+            >
+              <View style={styles.playerInfo}>
+                <Text style={styles.playerName}>
+                  {player.displayName}
+                  {player.isHost && ' 👑'}
+                </Text>
+                <View style={styles.playerStatusContainer}>
+                  <Text style={[
+                    styles.playerStatus,
+                    player.isReady && styles.playerStatusReady
+                  ]}>
+                    {player.isReady ? '✅ Ready' : '⏳ Not Ready'}
+                  </Text>
+                </View>
+              </View>
+            </Animated.View>
+          ))}
+          
+          {/* Show empty slots */}
+          {Array.from({ length: Math.max(0, 4 - playerCount) }).map((_, index) => (
+            <View key={`empty_${index}`} style={[styles.playerCard, styles.emptyPlayerCard]}>
+              <Text style={styles.emptyPlayerText}>Waiting for player...</Text>
+            </View>
+          ))}
+        </View>
       </Animated.View>
       
       <Animated.View 
         entering={FadeIn.delay(500).duration(500)}
         style={styles.footer}
       >
-        {isHost ? (
-          <AnimatedButton
-            text="Start Game"
-            variant="primary"
-            size="medium"
-            onPress={handleStartGame}
-            disabled={Object.keys(players).length < 2 || !Object.values(players).every((p: any) => p.isReady)}
-            style={styles.startButton}
-          />
-        ) : (
-          <Text style={styles.waitingText}>
-            Waiting for host to start the game...
-          </Text>
+        {/* Ready Button for ALL Players (including host) */}
+        {user?.uid && (
+          <TouchableOpacity 
+            style={[
+              styles.readyButton,
+              isCurrentUserReady && styles.readyButtonActive
+            ]}
+            onPress={handleToggleReady}
+          >
+            <Text style={[
+              styles.readyButtonText,
+              isCurrentUserReady && styles.readyButtonTextActive
+            ]}>
+              {isCurrentUserReady ? '✅ Ready!' : '⏳ Mark as Ready'}
+            </Text>
+          </TouchableOpacity>
         )}
+        
+        {/* Start Button for Host */}
+        {isHost ? (
+          <View style={styles.hostControls}>
+            <TouchableOpacity 
+              style={[
+                styles.startButton,
+                readyCount < 2 && styles.startButtonDisabled
+              ]}
+              onPress={handleStartTestGame}
+            >
+              <Text style={styles.startButtonText}>
+                {readyCount < 2 
+                  ? `🎮 Need 2+ Ready (${readyCount}/${playerCount})` 
+                  : `🎮 Start Game (${readyCount}/${playerCount} ready)`}
+              </Text>
+            </TouchableOpacity>
+            
+            {/* Debug button - remove this later */}
+            <TouchableOpacity 
+              style={[styles.startButton, { backgroundColor: '#34C759' }]}
+              onPress={() => {
+                console.log('🧪 Debug: Force starting game...');
+                dispatch(startTestGame());
+              }}
+            >
+              <Text style={styles.startButtonText}>🧪 Debug: Force Start</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={styles.waitingContainer}>
+            <Text style={styles.waitingText}>
+              Waiting for host to start the game...
+            </Text>
+          </View>
+        )}
+        
+        <View style={styles.gameInfo}>
+          <Text style={styles.gameInfoTitle}>🎯 How to Play</Text>
+          <Text style={styles.gameInfoText}>
+            • Get funny prompts{'\n'}
+            • Create AI images with your selfie{'\n'}
+            • Vote on the funniest results{'\n'}
+            • Win points for votes!
+          </Text>
+        </View>
       </Animated.View>
     </SafeAreaView>
   );
@@ -254,114 +322,189 @@ export default function GameLobbyScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background.primary,
+    backgroundColor: '#000',
   },
   header: {
-    padding: spacing.lg,
     alignItems: 'center',
+    padding: 20,
+    paddingTop: 40,
   },
   title: {
-    fontSize: typography.fontSize.xxxl,
+    fontSize: 32,
     fontWeight: 'bold',
-    color: colors.text.primary,
-    marginBottom: spacing.md,
+    color: 'white',
+    marginBottom: 20,
   },
   codeContainer: {
-    backgroundColor: colors.background.secondary,
-    borderRadius: 12,
-    padding: spacing.lg,
+    backgroundColor: 'rgba(255, 59, 48, 0.1)',
+    borderRadius: 15,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 59, 48, 0.3)',
     alignItems: 'center',
-    width: '100%',
   },
   codeLabel: {
-    fontSize: typography.fontSize.sm,
-    color: colors.text.tertiary,
-    marginBottom: spacing.xs,
+    color: '#FF3B30',
+    fontSize: 12,
+    fontWeight: 'bold',
+    marginBottom: 5,
   },
   codeText: {
-    fontSize: typography.fontSize.xxxl,
+    color: 'white',
+    fontSize: 24,
     fontWeight: 'bold',
-    color: colors.primary,
-    letterSpacing: 8,
-    marginBottom: spacing.md,
+    marginBottom: 10,
+    letterSpacing: 2,
   },
-  codeActions: {
-    flexDirection: 'row',
-    justifyContent: 'center',
+  copyButton: {
+    backgroundColor: '#FF3B30',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
   },
-  codeButton: {
-    marginHorizontal: spacing.xs,
+  copyButtonText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: 'bold',
   },
   content: {
     flex: 1,
-    padding: spacing.lg,
+    padding: 20,
   },
   playersHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: spacing.md,
+    alignItems: 'center',
+    marginBottom: 20,
   },
   playersTitle: {
-    fontSize: typography.fontSize.xl,
+    color: 'white',
+    fontSize: 20,
     fontWeight: 'bold',
-    color: colors.text.primary,
+  },
+  readyStatus: {
+    color: '#34C759',
+    fontSize: 16,
+    fontWeight: '600',
   },
   playersList: {
-    paddingBottom: spacing.lg,
-  },
-  playerCard: {
-    marginBottom: spacing.md,
-  },
-  playerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  playerInfo: {
     flex: 1,
   },
+  playerCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 15,
+    padding: 15,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  playerCardReady: {
+    backgroundColor: 'rgba(52, 199, 89, 0.1)',
+    borderColor: 'rgba(52, 199, 89, 0.3)',
+  },
+  emptyPlayerCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+    borderStyle: 'dashed',
+  },
+  playerInfo: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
   playerName: {
-    fontSize: typography.fontSize.md,
-    fontWeight: 'bold',
-    color: colors.text.primary,
-    marginBottom: spacing.xs,
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
   },
-  readyBadge: {
-    backgroundColor: colors.success,
-    paddingVertical: 2,
-    paddingHorizontal: 8,
-    borderRadius: 12,
-    alignSelf: 'flex-start',
+  playerStatusContainer: {
+    alignItems: 'center',
   },
-  readyText: {
-    fontSize: typography.fontSize.xs,
-    fontWeight: 'bold',
-    color: colors.text.primary,
+  playerStatus: {
+    color: '#FF9500',
+    fontSize: 14,
+    fontWeight: '500',
   },
-  notReadyBadge: {
-    backgroundColor: colors.background.tertiary,
-    paddingVertical: 2,
-    paddingHorizontal: 8,
-    borderRadius: 12,
-    alignSelf: 'flex-start',
+  playerStatusReady: {
+    color: '#34C759',
   },
-  notReadyText: {
-    fontSize: typography.fontSize.xs,
-    color: colors.text.tertiary,
+  emptyPlayerText: {
+    color: '#666',
+    fontSize: 14,
+    fontStyle: 'italic',
+    textAlign: 'center',
   },
   footer: {
-    padding: spacing.lg,
-    borderTopWidth: 1,
-    borderTopColor: colors.background.tertiary,
+    padding: 20,
+    gap: 15,
+  },
+  readyButton: {
+    backgroundColor: '#007AFF',
+    paddingVertical: 15,
+    borderRadius: 25,
+    alignItems: 'center',
+  },
+  readyButtonActive: {
+    backgroundColor: '#34C759',
+  },
+  readyButtonText: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  readyButtonTextActive: {
+    color: 'white',
   },
   startButton: {
-    width: '100%',
+    backgroundColor: '#FF3B30',
+    paddingVertical: 15,
+    borderRadius: 25,
+    alignItems: 'center',
+  },
+  startButtonDisabled: {
+    backgroundColor: '#666',
+  },
+  startButtonText: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  waitingContainer: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 15,
+    padding: 20,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   waitingText: {
-    fontSize: typography.fontSize.md,
-    color: colors.text.tertiary,
+    color: '#ccc',
+    fontSize: 16,
     textAlign: 'center',
-    fontStyle: 'italic',
+  },
+  gameInfo: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 15,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  gameInfoTitle: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  gameInfoText: {
+    color: '#ccc',
+    fontSize: 14,
+    lineHeight: 22,
+    textAlign: 'center',
+  },
+  hostControls: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 10,
   },
 });

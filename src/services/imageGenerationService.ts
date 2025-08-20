@@ -40,7 +40,7 @@ export const generateAIImage = async (
     console.log('🎨 Starting AI image generation...', { prompt, userId });
 
     // Get user's selfie URL from secure storage
-    const selfieUrl = await getUserSelfie(userId);
+    const selfieUrl = await getUserSelfie();
     if (!selfieUrl) {
       throw new Error('Please upload a selfie first! Go to Profile → Upload Selfie');
     }

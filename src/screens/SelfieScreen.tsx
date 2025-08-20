@@ -11,29 +11,44 @@ import Animated, {
   FadeOut,
   SlideInUp
 } from 'react-native-reanimated';
+import { StackNavigationProp } from '@react-navigation/stack';
+
+// Define navigation types
+type SelfieStackParamList = {
+  Selfie: undefined;
+  MainTabs: undefined;
+};
+
+type SelfieScreenNavigationProp = StackNavigationProp<SelfieStackParamList, 'Selfie'>;
 
 export default function SelfieScreen() {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const navigation = useNavigation();
+  const navigation = useNavigation<SelfieScreenNavigationProp>();
   const dispatch = useDispatch();
   
   const handleSelfieCapture = async (uri: string) => {
     try {
+      console.log('📸 Selfie captured, starting upload process...');
       setUploading(true);
       setError(null);
       
       // Upload selfie to Firebase Storage
+      console.log('🚀 Calling uploadSelfieToFirebase...');
       await uploadSelfieToFirebase(uri);
+      console.log('✅ Selfie uploaded successfully');
       
       // Update Redux state
+      console.log('🔄 Updating Redux state...');
       dispatch(setSelfieUploaded(true));
+      console.log('✅ Redux state updated');
       
-      // Navigate to profile completion
-      navigation.navigate('Profile' as never);
+      // Navigate to main app after selfie upload
+      console.log('🚀 Navigating to MainTabs...');
+      navigation.navigate('MainTabs');
     } catch (err) {
+      console.error('❌ Selfie upload error:', err);
       setError('Failed to upload selfie. Please try again.');
-      console.error('Selfie upload error:', err);
     } finally {
       setUploading(false);
     }

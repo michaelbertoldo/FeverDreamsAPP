@@ -1,4 +1,4 @@
-// src/hooks/useGameNotifications.ts - FIXED VERSION
+// src/hooks/useGameNotifications.ts
 import { useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import * as Notifications from 'expo-notifications';
@@ -10,31 +10,35 @@ export const useGameNotifications = () => {
   useEffect(() => {
     const handleGameStateChange = async () => {
       try {
-        // Handle different game states
         switch (gameState.status) {
+          case 'waiting':
+            await sendNotification(
+              'Game Ready!',
+              'Waiting for players to join...'
+            );
+            break;
+            
           case 'playing':
             if (gameState.currentPromptData?.promptText) {
               await sendNotification(
-                'New Prompt!',
-                `Your prompt: ${gameState.currentPromptData.promptText}`
+                'Your Turn!',
+                `New prompt: ${gameState.currentPromptData.promptText}`
               );
             }
             break;
             
           case 'voting':
             await sendNotification(
-              'Time to Vote!',
-              'Vote for the funniest image!'
+              'Vote Time!',
+              'Time to vote on the funniest images!'
             );
             break;
             
           case 'results':
-            if (gameState.roundResults) {
-              await sendNotification(
-                'Round Complete!',
-                'Check out the results!'
-              );
-            }
+            await sendNotification(
+              'Round Complete!',
+              'Check out the results!'
+            );
             break;
             
           case 'completed':
@@ -47,20 +51,20 @@ export const useGameNotifications = () => {
     };
     
     handleGameStateChange();
-  }, [gameState.status, gameState.currentPromptData, gameState.roundResults, gameState.gameResults]);
+  }, [gameState.status, gameState.currentPromptData]);
   
   const handleGameComplete = async (gameData: typeof gameState) => {
     try {
-      if (gameData.gameResults?.winner) {
-        const winnerData = gameData.gameResults.winner;
-        
-        // Safe property access
-        const winnerName = winnerData?.displayName || 'Unknown Player';
-        const winnerScore = winnerData?.score || 0;
+      // Get the player with the highest score
+      const players = Object.values(gameData.players);
+      if (players.length > 0) {
+        const winner = players.reduce((prev, current) => 
+          (prev.score > current.score) ? prev : current
+        );
         
         await sendNotification(
           'Game Complete! 🎉',
-          `${winnerName} wins with ${winnerScore} points!`
+          `${winner.displayName} wins with ${winner.score} points!`
         );
       } else {
         await sendNotification(
@@ -85,56 +89,6 @@ export const useGameNotifications = () => {
       });
     } catch (error) {
       console.error('Error sending notification:', error);
-    }
-  };
-};
-
-// Alternative: Even safer approach using defensive programming
-export const useGameNotificationsSafe = () => {
-  const gameState = useSelector((state: RootState) => state.game);
-  
-  useEffect(() => {
-    if (gameState.status === 'completed') {
-      handleGameCompleteSafe();
-    }
-  }, [gameState.status, gameState.gameResults]);
-  
-  const handleGameCompleteSafe = async () => {
-    try {
-      // Defensive programming - handle any possible type issues
-      const gameResults = gameState?.gameResults;
-      const winner = gameResults?.winner;
-      
-      if (winner && typeof winner === 'object') {
-        // Safe property access with type checking
-        const displayName = 'displayName' in winner && typeof winner.displayName === 'string' 
-          ? winner.displayName 
-          : 'Unknown Player';
-          
-        const score = 'score' in winner && typeof winner.score === 'number' 
-          ? winner.score 
-          : 0;
-        
-        await Notifications.scheduleNotificationAsync({
-          content: {
-            title: 'Game Complete! 🎉',
-            body: `${displayName} wins with ${score} points!`,
-            sound: true,
-          },
-          trigger: null,
-        });
-      } else {
-        await Notifications.scheduleNotificationAsync({
-          content: {
-            title: 'Game Complete!',
-            body: 'Thanks for playing!',
-            sound: true,
-          },
-          trigger: null,
-        });
-      }
-    } catch (error) {
-      console.error('Error sending game complete notification:', error);
     }
   };
 };

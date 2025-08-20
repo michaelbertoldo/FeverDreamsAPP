@@ -3,7 +3,11 @@ import axios from 'axios';
 import { auth, db } from '../config/firebase';
 import { doc, setDoc, updateDoc, getDoc, collection, addDoc } from 'firebase/firestore';
 import { store } from '../store';
-import { setGameId } from '../store/slices/gameSlice';
+import { 
+  setGameId, 
+  setJoinCode,
+  setGameCreated
+} from '../store/slices/gameSlice';
 import { joinGame, submitImage } from './socketService';
 
 const API_URL = 'https://your-firebase-function-url.com';
@@ -19,7 +23,8 @@ export const createGame = async (displayName: string ): Promise<string> => {
     const joinCode = generateJoinCode();
     
     // Update Redux store
-    store.dispatch(setGameId({ gameId, joinCode }));
+    store.dispatch(setGameId(gameId));
+    store.dispatch(setJoinCode(joinCode));
     
     // Connect to Socket.IO and join game
     joinGame(gameId, displayName);
@@ -41,7 +46,8 @@ export const joinExistingGame = async (joinCode: string, displayName: string): P
     const gameId = `game_joined_${Date.now()}`;
     
     // Update Redux store
-    store.dispatch(setGameId({ gameId, joinCode }));
+    store.dispatch(setGameId(gameId));
+    store.dispatch(setJoinCode(joinCode));
     
     // Connect to Socket.IO and join game
     joinGame(gameId, displayName);

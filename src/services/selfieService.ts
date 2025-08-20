@@ -51,7 +51,9 @@ export const getCloudinarySignature = async () => {
 // Upload selfie to Firebase Storage (dedicated function)
 export const uploadSelfieToFirebase = async (uri: string): Promise<string> => {
   try {
+    console.log('📸 Starting selfie upload process...');
     const processedUri = await processSelfie(uri);
+    console.log('✅ Selfie processed successfully');
     
     // Convert URI to blob
     const response = await fetch(processedUri);
@@ -59,26 +61,32 @@ export const uploadSelfieToFirebase = async (uri: string): Promise<string> => {
       throw new Error(`Failed to fetch image: ${response.status}`);
     }
     const blob = await response.blob();
+    console.log('✅ Image converted to blob');
     
     // Get current user
     const userId = auth.currentUser?.uid;
     if (!userId) throw new Error('User not authenticated');
+    console.log('✅ User authenticated:', userId);
     
     // Create storage reference with unique filename
     const selfieRef = ref(storage, `selfies/${userId}/${generateUniqueId()}.jpg`);
+    console.log('✅ Storage reference created');
     
     // Upload file
     await uploadBytes(selfieRef, blob);
+    console.log('✅ Selfie uploaded to Firebase Storage');
     
     // Get download URL
     const downloadURL = await getDownloadURL(selfieRef);
+    console.log('✅ Download URL obtained');
     
     // Update user profile in Firestore with selfie URL
     await updateUserSelfie(userId, downloadURL);
+    console.log('✅ User profile updated with selfie URL');
     
     return downloadURL;
   } catch (error) {
-    console.error('Error uploading selfie to Firebase:', error);
+    console.error('❌ Error uploading selfie to Firebase:', error);
     throw error;
   }
 };
@@ -185,11 +193,13 @@ export const uploadSelfieToCloudinary = async (uri: string): Promise<string> => 
 // Update user profile with selfie URL
 export const updateUserSelfie = async (userId: string, selfieUrl: string): Promise<void> => {
   try {
+    console.log('🔄 Updating user selfie for:', userId);
     const userRef = doc(db, 'users', userId);
     
     // Check if user document exists, create it if it doesn't
     const userSnapshot = await getDoc(userRef);
     if (!userSnapshot.exists()) {
+      console.log('📝 User document does not exist, creating new one...');
       // Create basic user document if it doesn't exist
       await setDoc(userRef, {
         userId,
@@ -202,16 +212,19 @@ export const updateUserSelfie = async (userId: string, selfieUrl: string): Promi
         createdAt: Timestamp.now(),
         lastActive: Timestamp.now()
       });
+      console.log('✅ New user document created successfully');
     } else {
+      console.log('📝 User document exists, updating...');
       // Update existing user document
       await updateDoc(userRef, {
         selfieUrl,
         selfieProcessed: true,
         lastActive: Timestamp.now()
       });
+      console.log('✅ Existing user document updated successfully');
     }
   } catch (error) {
-    console.error('Error updating user selfie:', error);
+    console.error('❌ Error updating user selfie:', error);
     throw error;
   }
 };

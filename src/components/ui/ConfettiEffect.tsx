@@ -138,7 +138,7 @@ export const ConfettiEffect: React.FC<ConfettiEffectProps> = ({
     themeColors.tertiary,
     themeColors.success,
     themeColors.warning,
-    themeColors.info
+    themeColors.danger
   ],
   onComplete
 }) => {

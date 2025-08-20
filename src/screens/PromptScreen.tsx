@@ -1,176 +1,216 @@
-// src/screens/PromptScreen.tsx - Fixed missing gameId
+// src/screens/PromptScreen.tsx - FIXED VERSION
 import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
   StyleSheet, 
+  TextInput, 
+  TouchableOpacity, 
+  Alert,
   SafeAreaView,
-  KeyboardAvoidingView,
-  Platform,
+  ActivityIndicator,
+  Keyboard,
   TouchableWithoutFeedback,
-  Keyboard
+  KeyboardAvoidingView,
+  Platform
 } from 'react-native';
-import { useSelector } from 'react-redux';
-import Animated, { 
-  FadeIn, 
-  SlideInUp,
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  withRepeat,
-  withSequence
-} from 'react-native-reanimated';
+import { useSelector, useDispatch } from 'react-redux';
+import { useNavigation } from '@react-navigation/native';
+import Animated, { FadeIn, SlideInUp } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
-import { ImageGenerator } from '../components/ImageGenerator';
-import { AnimatedCard } from '../components/ui/AnimatedCard';
 import { RootState } from '../store';
-import { colors, typography, spacing, borderRadius } from '../theme';
+import { startVotingPhase, resetGame } from '../store/slices/gameSlice';
 
 export default function PromptScreen() {
-  const [timeLeft, setTimeLeft] = useState(60);
-  const [isTimeWarning, setIsTimeWarning] = useState(false);
+  const [userResponse, setUserResponse] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(60); // 60 seconds to respond
   
-  // Get current prompt data from Redux
-  const { 
-    gameId,
-    currentPromptData: { promptId, promptText, isAssigned },
-    currentRound
-  } = useSelector((state: RootState) => state.game);
+  const navigation = useNavigation();
+  const dispatch = useDispatch();
   
-  // Animation values
-  const timerScale = useSharedValue(1);
-  const promptScale = useSharedValue(1);
-  
-  // Start timer animation
+  const { currentPromptData, currentRound, status } = useSelector((state: RootState) => state.game);
+  const { user } = useSelector((state: RootState) => state.auth);
+
+  // Auto-navigate based on game status
   useEffect(() => {
-    // Countdown timer
+    if (status === 'voting') {
+      console.log('🎮 Game status changed to voting, navigating...');
+      // Navigation will be handled by AppNavigator based on Redux state
+    }
+  }, [status, navigation]);
+
+  // Timer effect
+  useEffect(() => {
     const timer = setInterval(() => {
-      setTimeLeft((prev) => {
+      setTimeLeft(prev => {
         if (prev <= 1) {
-          clearInterval(timer);
+          handleAutoSubmit();
           return 0;
         }
-        
-        // Set warning when 15 seconds left
-        if (prev === 16) {
-          setIsTimeWarning(true);
-          
-          // Start warning animation
-          timerScale.value = withRepeat(
-            withSequence(
-              withSpring(1.2, { damping: 10, stiffness: 100 }),
-              withSpring(1, { damping: 10, stiffness: 100 })
-            ),
-            5,
-            false
-          );
-        }
-        
         return prev - 1;
       });
     }, 1000);
-    
-    // Prompt animation
-    promptScale.value = withRepeat(
-      withSequence(
-        withSpring(1.02, { damping: 15, stiffness: 100 }),
-        withSpring(1, { damping: 15, stiffness: 100 })
-      ),
-      3,
-      false
-    );
-    
+
     return () => clearInterval(timer);
   }, []);
-  
-  // Animated styles
-  const timerStyle = useAnimatedStyle(() => {
-    return {
-      transform: [{ scale: timerScale.value }]
-    };
-  });
-  
-  const promptStyle = useAnimatedStyle(() => {
-    return {
-      transform: [{ scale: promptScale.value }]
-    };
-  });
-  
-  // Format time as MM:SS
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+
+  const handleAutoSubmit = () => {
+    if (!userResponse.trim()) {
+      setUserResponse('I ran out of time!');
+    }
+    handleSubmit();
   };
-  
-  return (
-    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+
+  const handleBackPress = () => {
+    Alert.alert(
+      'Leave Game?',
+      'Are you sure you want to leave the current game?',
+      [
+        {
+          text: 'Stay',
+          style: 'cancel'
+        },
+        {
+          text: 'Leave Game',
+          style: 'destructive',
+          onPress: () => {
+            dispatch(resetGame());
+          }
+        }
+      ]
+    );
+  };
+
+  const dismissKeyboard = () => {
+    Keyboard.dismiss();
+  };
+
+  const handleSubmit = async () => {
+    if (!userResponse.trim()) {
+      Alert.alert('Error', 'Please enter a response first!');
+      return;
+    }
+
+    // Dismiss keyboard before proceeding
+    Keyboard.dismiss();
+
+    try {
+      setIsSubmitting(true);
+      console.log('📝 Submitting response:', userResponse);
+      
+      // Simulate AI image generation delay
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // For demo purposes, create a mock image URL
+      const mockImageUrl = `https://picsum.photos/400/400?random=${Date.now()}`;
+      
+      console.log('🎨 Mock image generated:', mockImageUrl);
+      
+      // Navigate to voting phase (simplified flow)
+      Alert.alert(
+        'Response Submitted!', 
+        'Your AI image has been generated. Waiting for other players...',
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              // For demo, go straight to voting
+              dispatch(startVotingPhase());
+            }
+          }
+        ]
+      );
+      
+    } catch (error) {
+      console.error('❌ Error submitting response:', error);
+      Alert.alert('Error', 'Failed to submit response. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (!currentPromptData) {
+    return (
       <SafeAreaView style={styles.container}>
-        <KeyboardAvoidingView
+        <View style={styles.centerContent}>
+          <ActivityIndicator size="large" color="#FF3B30" />
+          <Text style={styles.loadingText}>Loading prompt...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <TouchableWithoutFeedback onPress={dismissKeyboard}>
+      <SafeAreaView style={styles.container}>
+        <KeyboardAvoidingView 
+          style={styles.keyboardContainer}
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.keyboardAvoid}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
         >
-          <Animated.View 
-            entering={FadeIn.duration(500)} 
-            style={styles.header}
-          >
-            <View style={styles.roundInfo}>
-              <Text style={styles.roundText}>Round {currentRound}</Text>
-              <Animated.View 
-                style={[
-                  styles.timer, 
-                  isTimeWarning && styles.timerWarning,
-                  timerStyle
-                ]}
-              >
-                <Ionicons 
-                  name="time-outline" 
-                  size={16} 
-                  color={isTimeWarning ? colors.text.primary : colors.text.tertiary} 
-                />
-                <Text 
-                  style={[
-                    styles.timerText,
-                    isTimeWarning && styles.timerTextWarning
-                  ]}
-                >
-                  {formatTime(timeLeft)}
-                </Text>
-              </Animated.View>
-            </View>
-          </Animated.View>
-          
-          <Animated.View 
-            entering={SlideInUp.delay(300).duration(500)}
-            style={styles.content}
-          >
-            <Animated.View style={promptStyle}>
-              <AnimatedCard animation="bounce" style={styles.promptCard}>
-                <Text style={styles.promptLabel}>YOUR PROMPT</Text>
-                <Text style={styles.promptText}>{promptText || 'Loading prompt...'}</Text>
-              </AnimatedCard>
-            </Animated.View>
+          {/* Header with Back Button */}
+          <Animated.View entering={FadeIn.duration(500)} style={styles.header}>
+            <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
+              <Ionicons name="arrow-back" size={24} color="white" />
+            </TouchableOpacity>
             
-            {isAssigned ? (
-              <ImageGenerator
-                gameId={gameId || ''}
-                promptId={promptId || ''}
-                promptText={promptText || ''}
-                onImageGenerated={(imageUrl) => {
-                  // Handle image generation completion
-                  console.log('Image generated:', imageUrl);
-                }}
-              />
-            ) : (
-              <AnimatedCard animation="fade" delay={500} style={styles.waitingCard}>
-                <Ionicons name="hourglass-outline" size={48} color={colors.text.tertiary} />
-                <Text style={styles.waitingTitle}>Waiting for other players...</Text>
-                <Text style={styles.waitingText}>
-                  Other players are creating their images for this prompt.
-                </Text>
-              </AnimatedCard>
-            )}
+            <View style={styles.headerCenter}>
+              <Text style={styles.roundText}>Round {currentRound}</Text>
+              <Text style={styles.timeText}>⏰ {timeLeft}s</Text>
+            </View>
+            
+            <View style={styles.headerRight} />
           </Animated.View>
+
+          <Animated.View entering={SlideInUp.delay(200).duration(500)} style={styles.promptContainer}>
+            <Text style={styles.promptLabel}>YOUR PROMPT</Text>
+            <Text style={styles.promptText}>{currentPromptData.promptText}</Text>
+          </Animated.View>
+
+          <Animated.View entering={SlideInUp.delay(400).duration(500)} style={styles.responseContainer}>
+            <Text style={styles.responseLabel}>How would you complete this prompt?</Text>
+            <TextInput
+              style={styles.responseInput}
+              placeholder="Enter your creative response..."
+              placeholderTextColor="#666"
+              value={userResponse}
+              onChangeText={setUserResponse}
+              multiline
+              maxLength={200}
+              editable={!isSubmitting}
+              returnKeyType="done"
+              onSubmitEditing={dismissKeyboard}
+              blurOnSubmit={true}
+            />
+            <Text style={styles.charCount}>{userResponse.length}/200</Text>
+          </Animated.View>
+
+          <Animated.View entering={FadeIn.delay(600).duration(500)} style={styles.submitContainer}>
+            <TouchableOpacity 
+              style={[
+                styles.submitButton,
+                (!userResponse.trim() || isSubmitting) && styles.submitButtonDisabled
+              ]}
+              onPress={handleSubmit}
+              disabled={!userResponse.trim() || isSubmitting}
+            >
+              {isSubmitting ? (
+                <View style={styles.submitContent}>
+                  <ActivityIndicator size="small" color="white" style={styles.spinner} />
+                  <Text style={styles.submitText}>Generating AI Image...</Text>
+                </View>
+              ) : (
+                <Text style={styles.submitText}>🎨 Generate AI Image</Text>
+              )}
+            </TouchableOpacity>
+          </Animated.View>
+
+          <View style={styles.infoContainer}>
+            <Text style={styles.infoText}>
+              💡 Be creative! Your response will be used to generate a funny AI image with your selfie.
+            </Text>
+          </View>
         </KeyboardAvoidingView>
       </SafeAreaView>
     </TouchableWithoutFeedback>
@@ -180,77 +220,146 @@ export default function PromptScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background.primary,
+    backgroundColor: '#000',
   },
-  keyboardAvoid: {
+  keyboardContainer: {
     flex: 1,
+    padding: 20,
   },
-  header: {
-    padding: spacing.lg,
-  },
-  roundInfo: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  roundText: {
-    fontSize: typography.fontSize.xl,
-    fontWeight: 'bold',
-    color: colors.text.primary,
-  },
-  timer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.background.secondary,
-    paddingVertical: 4,
-    paddingHorizontal: 12,
-    borderRadius: 16,
-  },
-  timerWarning: {
-    backgroundColor: colors.warning,
-  },
-  timerText: {
-    fontSize: typography.fontSize.md,
-    fontWeight: 'bold',
-    color: colors.text.tertiary,
-    marginLeft: 4,
-  },
-  timerTextWarning: {
-    color: colors.text.primary,
-  },
-  content: {
-    flex: 1,
-    padding: spacing.lg,
-  },
-  promptCard: {
-    marginBottom: spacing.lg,
-  },
-  promptLabel: {
-    fontSize: typography.fontSize.sm,
-    color: colors.text.tertiary,
-    marginBottom: spacing.xs,
-  },
-  promptText: {
-    fontSize: typography.fontSize.xxl,
-    fontWeight: 'bold',
-    color: colors.text.primary,
-  },
-  waitingCard: {
+  centerContent: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: spacing.xl,
   },
-  waitingTitle: {
-    fontSize: typography.fontSize.xl,
+  loadingText: {
+    color: 'white',
+    fontSize: 16,
+    marginTop: 10,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 30,
+    paddingTop: 10,
+  },
+  backButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerCenter: {
+    alignItems: 'center',
+  },
+  headerRight: {
+    width: 44, // To balance the layout
+  },
+  roundText: {
+    color: '#FF3B30',
+    fontSize: 16,
     fontWeight: 'bold',
-    color: colors.text.primary,
-    marginTop: spacing.lg,
-    marginBottom: spacing.md,
   },
-  waitingText: {
-    fontSize: typography.fontSize.md,
-    color: colors.text.secondary,
+  timeText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginTop: 2,
+  },
+  promptContainer: {
+    backgroundColor: 'rgba(255, 59, 48, 0.1)',
+    borderRadius: 15,
+    padding: 20,
+    marginBottom: 30,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 59, 48, 0.3)',
+  },
+  promptLabel: {
+    color: '#FF3B30',
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginBottom: 10,
     textAlign: 'center',
+  },
+  promptText: {
+    color: 'white',
+    fontSize: 22,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    lineHeight: 28,
+  },
+  responseContainer: {
+    flex: 1,
+    marginBottom: 20,
+  },
+  responseLabel: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 15,
+  },
+  responseInput: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 15,
+    padding: 15,
+    color: 'white',
+    fontSize: 16,
+    minHeight: 100,
+    maxHeight: 150,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    textAlignVertical: 'top',
+  },
+  charCount: {
+    color: '#666',
+    fontSize: 12,
+    textAlign: 'right',
+    marginTop: 5,
+  },
+  submitContainer: {
+    marginBottom: 20,
+  },
+  submitButton: {
+    backgroundColor: '#FF3B30',
+    paddingVertical: 15,
+    paddingHorizontal: 30,
+    borderRadius: 25,
+    alignItems: 'center',
+    elevation: 3,
+    shadowColor: '#FF3B30',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+  },
+  submitButtonDisabled: {
+    backgroundColor: '#666',
+    shadowOpacity: 0,
+  },
+  submitContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  submitText: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  spinner: {
+    marginRight: 10,
+  },
+  infoContainer: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 10,
+    padding: 15,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  infoText: {
+    color: '#ccc',
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
   },
 });

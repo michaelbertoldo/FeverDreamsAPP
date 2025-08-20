@@ -1,4 +1,4 @@
-// src/store/slices/gameSlice.ts
+// src/store/slices/gameSlice.ts - Enhanced version
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 
 interface Player {
@@ -7,36 +7,32 @@ interface Player {
   isHost: boolean;
   isReady: boolean;
   score: number;
-  connected?: boolean;
-}
-
-interface Submission {
-  id: string;
-  imageUrl: string;
-  votes: string[];
-  points?: number;
 }
 
 interface Prompt {
-  id: string;
+  promptId: string;
   text: string;
   round: number;
   assignedPlayers: string[];
-  submissions: {
-    [playerId: string]: Submission;
-  };
+}
+
+interface Submission {
+  submissionId: string;
+  promptId: string;
+  playerId: string;
+  imageUrl: string;
+  votes: string[];
 }
 
 interface GameState {
   gameId: string | null;
   joinCode: string | null;
   status: 'waiting' | 'playing' | 'voting' | 'results' | 'completed';
-  players: {
-    [playerId: string]: Player;
-  };
   currentRound: number;
   currentPrompt: number;
+  players: { [userId: string]: Player };
   prompts: Prompt[];
+  submissions: Submission[];
   isHost: boolean;
   currentPromptData: {
     promptId: string | null;
@@ -44,217 +40,198 @@ interface GameState {
     isAssigned: boolean;
     isVoting: boolean;
     assignedPlayers: string[];
-    submissions: {
-      [playerId: string]: Submission;
-    };
-  };
-  roundResults: {
-    round: number;
-    scores: {
-      [playerId: string]: {
-        roundScore: number;
-        totalScore: number;
-      };
-    };
   } | null;
-  gameResults: {
-    scores: {
-      [playerId: string]: {
-        score: number;
-      };
-    };
-    winner: {
-      playerId: string;
-      displayName: string;
-      score: number;
-    } | null;
-  } | null;
-  error: string | null;
 }
 
 const initialState: GameState = {
   gameId: null,
   joinCode: null,
   status: 'waiting',
-  players: {},
   currentRound: 0,
   currentPrompt: 0,
+  players: {},
   prompts: [],
+  submissions: [],
   isHost: false,
-  currentPromptData: {
-    promptId: null,
-    promptText: null,
-    isAssigned: false,
-    isVoting: false,
-    assignedPlayers: [],
-    submissions: {}
-  },
-  roundResults: null,
-  gameResults: null,
-  error: null
+  currentPromptData: null,
 };
 
 const gameSlice = createSlice({
   name: 'game',
   initialState,
   reducers: {
-    setGameId: (state, action: PayloadAction<{ gameId: string; joinCode: string }>) => {
-      state.gameId = action.payload.gameId;
-      state.joinCode = action.payload.joinCode;
+    setGameId: (state, action: PayloadAction<string>) => {
+      state.gameId = action.payload;
+      state.status = 'waiting'; // Set initial status when game is created
+      console.log('📝 Game ID set:', action.payload);
     },
-    setGameState: (state, action: PayloadAction<any>) => {
-      const gameState = action.payload;
-      
-      if (gameState.players) state.players = gameState.players;
-      if (gameState.status) state.status = gameState.status;
-      if (gameState.currentRound) state.currentRound = gameState.currentRound;
-      if (gameState.currentPrompt) state.currentPrompt = gameState.currentPrompt;
-      if (gameState.prompts) state.prompts = gameState.prompts;
-      
-      // Check if current user is host - we'll handle this in the component
-      if (gameState.hostId) {
-        state.isHost = true; // Simplified for now
+    
+    setJoinCode: (state, action: PayloadAction<string>) => {
+      state.joinCode = action.payload;
+      console.log('📝 Join code set:', action.payload);
+    },
+    
+    setGameStatus: (state, action: PayloadAction<{ 
+      status: GameState['status']; 
+      currentRound?: number; 
+      prompts?: Prompt[] 
+    }>) => {
+      state.status = action.payload.status;
+      if (action.payload.currentRound !== undefined) {
+        state.currentRound = action.payload.currentRound;
       }
+      if (action.payload.prompts) {
+        state.prompts = action.payload.prompts;
+      }
+      console.log('🎮 Game status updated:', action.payload);
     },
-    addPlayer: (state, action: PayloadAction<{ playerId: string; displayName: string; isHost: boolean }>) => {
+    
+    addPlayer: (state, action: PayloadAction<{ 
+      playerId: string; 
+      displayName: string; 
+      isHost: boolean 
+    }>) => {
       const { playerId, displayName, isHost } = action.payload;
-      
       state.players[playerId] = {
         id: playerId,
         displayName,
         isHost,
         isReady: false,
         score: 0,
-        connected: true
       };
+      console.log('👤 Player added:', displayName);
     },
-    updatePlayerReady: (state, action: PayloadAction<{ playerId: string; isReady: boolean }>) => {
+    
+    updatePlayerReady: (state, action: PayloadAction<{ 
+      playerId: string; 
+      isReady: boolean 
+    }>) => {
       const { playerId, isReady } = action.payload;
-      
       if (state.players[playerId]) {
         state.players[playerId].isReady = isReady;
+        console.log('✅ Player ready status updated:', { playerId, isReady });
       }
     },
-    setGameStatus: (state, action: PayloadAction<{ status: string; currentRound?: number; prompts?: Prompt[] }>) => {
-      const { status, currentRound, prompts } = action.payload;
-      
-      state.status = status as any;
-      if (currentRound) state.currentRound = currentRound;
-      if (prompts) state.prompts = prompts;
-    },
-    setCurrentPrompt: (state, action: PayloadAction<any>) => {
-      const { 
-        promptId, 
-        promptText, 
-        isAssigned, 
-        isVoting, 
-        assignedPlayers, 
-        submissions 
-      } = action.payload;
-      
+    
+    setCurrentPrompt: (state, action: PayloadAction<{
+      promptId: string;
+      promptText: string;
+      isAssigned: boolean;
+      isVoting?: boolean;
+      assignedPlayers?: string[];
+    }>) => {
       state.currentPromptData = {
-        promptId: promptId || state.currentPromptData.promptId,
-        promptText: promptText || state.currentPromptData.promptText,
-        isAssigned: isAssigned !== undefined ? isAssigned : state.currentPromptData.isAssigned,
-        isVoting: isVoting !== undefined ? isVoting : state.currentPromptData.isVoting,
-        assignedPlayers: assignedPlayers || state.currentPromptData.assignedPlayers,
-        submissions: submissions || state.currentPromptData.submissions
+        promptId: action.payload.promptId,
+        promptText: action.payload.promptText,
+        isAssigned: action.payload.isAssigned,
+        isVoting: action.payload.isVoting || false,
+        assignedPlayers: action.payload.assignedPlayers || [],
       };
+      console.log('💭 Current prompt set:', action.payload);
     },
-    setSubmission: (state, action: PayloadAction<{ promptId: string; playerId: string; submissionId: string }>) => {
-      const { promptId, playerId, submissionId } = action.payload;
+    
+    addSubmission: (state, action: PayloadAction<Submission>) => {
+      state.submissions.push(action.payload);
+      console.log('📸 Submission added:', action.payload.submissionId);
+    },
+    
+    addVote: (state, action: PayloadAction<{
+      submissionId: string;
+      voterId: string;
+    }>) => {
+      const submission = state.submissions.find(s => s.submissionId === action.payload.submissionId);
+      if (submission) {
+        submission.votes.push(action.payload.voterId);
+        console.log('🗳️ Vote added:', action.payload);
+      }
+    },
+    
+    // Handle successful game creation/joining
+    setGameCreated: (state, action: PayloadAction<{
+      gameId: string;
+      gameCode: string;
+      isHost: boolean;
+    }>) => {
+      state.gameId = action.payload.gameId;
+      state.joinCode = action.payload.gameCode;
+      state.isHost = action.payload.isHost;
+      state.status = 'waiting';
+      console.log('🎮 Game created/joined successfully:', action.payload);
+    },
+    
+    // Set host status
+    setIsHost: (state, action: PayloadAction<boolean>) => {
+      state.isHost = action.payload;
+      console.log('👑 Host status set:', action.payload);
+    },
+    
+    // Simulate game start for testing
+    startTestGame: (state) => {
+      state.status = 'playing';
+      state.currentRound = 1;
       
-      // Find the prompt
-      const promptIndex = state.prompts.findIndex(p => p.id === promptId);
-      if (promptIndex >= 0) {
-        if (!state.prompts[promptIndex].submissions) {
-          state.prompts[promptIndex].submissions = {};
+      // Add some test prompts
+      state.prompts = [
+        {
+          promptId: 'prompt_1',
+          text: 'You as a superhero saving the day',
+          round: 1,
+          assignedPlayers: Object.keys(state.players).slice(0, 2)
+        },
+        {
+          promptId: 'prompt_2', 
+          text: 'You at a disco party in the 70s',
+          round: 1,
+          assignedPlayers: Object.keys(state.players).slice(2, 4)
         }
-        
-        state.prompts[promptIndex].submissions[playerId] = {
-          id: submissionId,
-          imageUrl: '', // Will be updated when voting starts
-          votes: []
-        };
-      }
-    },
-    setVote: (state, action: PayloadAction<{ promptId: string; voterId: string; votedFor: string }>) => {
-      const { promptId, voterId, votedFor } = action.payload;
+      ];
       
-      // Find the prompt
-      const promptIndex = state.prompts.findIndex(p => p.id === promptId);
-      if (promptIndex >= 0 && state.prompts[promptIndex].submissions[votedFor]) {
-        state.prompts[promptIndex].submissions[votedFor].votes.push(voterId);
-      }
-      
-      // Also update current prompt data if it's the active voting prompt
-      if (state.currentPromptData.promptId === promptId && 
-          state.currentPromptData.submissions[votedFor]) {
-        state.currentPromptData.submissions[votedFor].votes.push(voterId);
-      }
-    },
-    setRoundResults: (state, action: PayloadAction<{ round: number; prompts: Prompt[]; scores: any }>) => {
-      const { round, prompts, scores } = action.payload;
-      
-      state.roundResults = {
-        round,
-        scores
+      // Set current prompt for testing
+      state.currentPromptData = {
+        promptId: 'prompt_1',
+        promptText: 'You as a superhero saving the day',
+        isAssigned: true,
+        isVoting: false,
+        assignedPlayers: Object.keys(state.players).slice(0, 2)
       };
       
-      // Update prompts with results
-      prompts.forEach(prompt => {
-        const promptIndex = state.prompts.findIndex(p => p.id === prompt.id);
-        if (promptIndex >= 0) {
-          state.prompts[promptIndex] = prompt;
-        }
-      });
-      
-      // Update player scores
-      Object.entries(scores).forEach(([playerId, scoreData]: [string, any]) => {
-        if (state.players[playerId]) {
-          state.players[playerId].score = scoreData.totalScore;
-        }
-      });
-      
+      console.log('🧪 Test game started with status:', state.status);
+    },
+    
+    // Transition to voting phase after prompt submission
+    startVotingPhase: (state) => {
+      state.status = 'voting';
+      console.log('🗳️ Transitioning to voting phase');
+    },
+    
+    // Transition to results phase after voting
+    startResultsPhase: (state) => {
       state.status = 'results';
+      console.log('🏆 Transitioning to results phase');
     },
-    setGameResults: (state, action: PayloadAction<{ scores: any; winner: any }>) => {
-      const { scores, winner } = action.payload;
-      
-      state.gameResults = {
-        scores,
-        winner
-      };
-      
-      // Update final player scores
-      Object.entries(scores).forEach(([playerId, scoreData]: [string, any]) => {
-        if (state.players[playerId]) {
-          state.players[playerId].score = scoreData.score;
-        }
-      });
-    },
+    
+    // Reset game state
     resetGame: (state) => {
       return initialState;
     },
-    setError: (state, action: PayloadAction<string>) => {
-      state.error = action.payload;
-    }
-  }
+  },
 });
 
 export const {
   setGameId,
-  setGameState,
+  setJoinCode,
+  setGameStatus,
   addPlayer,
   updatePlayerReady,
-  setGameStatus,
   setCurrentPrompt,
-  setSubmission,
-  setVote,
-  setRoundResults,
-  setGameResults,
+  addSubmission,
+  addVote,
+  setGameCreated,
+  setIsHost,
+  startTestGame,
+  startVotingPhase,
+  startResultsPhase,
   resetGame,
-  setError
 } = gameSlice.actions;
 
 export default gameSlice.reducer;
