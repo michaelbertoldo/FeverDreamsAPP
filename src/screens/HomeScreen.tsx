@@ -1,210 +1,227 @@
-// src/screens/HomeScreen.tsx - FIXED VERSION WITH GAME CREATION
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Modal } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  TextInput,
+  SafeAreaView,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useDispatch, useSelector } from 'react-redux';
+import { Ionicons } from '@expo/vector-icons';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { useDispatch } from 'react-redux';
-import { GameCreationFlow } from '../components/GameCreationFlow';
-import { startTestGame } from '../store/slices/gameSlice';
+import { RootStackParamList } from '../navigation/AppNavigator';
+import { RootState } from '../store';
+import { createGame, joinGame } from '../store/slices/gameSlice';
+// Local function to generate game codes
+const generateGameCode = (): string => {
+  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  let code = '';
+  for (let i = 0; i < 4; i++) {
+    code += letters[Math.floor(Math.random() * letters.length)];
+  }
+  return code;
+};
 
-type HomeScreenNavigationProp = StackNavigationProp<any>;
+type HomeScreenNavigationProp = StackNavigationProp<RootStackParamList, 'MainTabs'>;
 
-const HomeScreen = () => {
+export default function HomeScreen() {
   const navigation = useNavigation<HomeScreenNavigationProp>();
   const dispatch = useDispatch();
-  const [isPressed, setIsPressed] = useState(false);
-  const [showGameCreation, setShowGameCreation] = useState(false);
+  const { user } = useSelector((state: RootState) => state.auth);
+  const [joinCode, setJoinCode] = useState('');
+  const [showJoinInput, setShowJoinInput] = useState(false);
 
-  const handleStartPlaying = async () => {
-    // Prevent multiple rapid button presses
-    if (isPressed) {
-      console.log('Button already pressed, ignoring...');
+  const handleCreateGame = () => {
+    const gameCode = generateGameCode();
+    const gameId = `game_${Date.now()}`;
+    
+    dispatch(createGame({ gameId, gameCode }));
+    navigation.navigate('GameLobby', { gameCode });
+  };
+
+  const handleJoinGame = () => {
+    if (joinCode.length !== 4) {
+      Alert.alert('Invalid Code', 'Please enter a 4-letter game code');
       return;
     }
-
-    try {
-      setIsPressed(true);
-      console.log('✅ Create/Join game pressed');
-      
-      // Add a small delay to prevent accidental double taps
-      await new Promise(resolve => setTimeout(resolve, 300));
-      
-      // Show game creation flow
-      setShowGameCreation(true);
-      
-    } catch (error) {
-      console.error('❌ Error starting game:', error);
-    } finally {
-      // Re-enable button after 1 second
-      setTimeout(() => {
-        setIsPressed(false);
-      }, 1000);
-    }
+    
+    const gameId = `game_${joinCode}`;
+    dispatch(joinGame({ gameId, gameCode: joinCode.toUpperCase() }));
+    navigation.navigate('GameLobby', { gameCode: joinCode.toUpperCase() });
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>AI Party Game</Text>
-      <Text style={styles.subtitle}>Ready to have some fun?</Text>
-      
-      <TouchableOpacity 
-        style={[
-          styles.button, 
-          isPressed && styles.buttonPressed 
-        ]} 
-        onPress={handleStartPlaying}
-        disabled={isPressed}
-        activeOpacity={0.8}
+    <SafeAreaView style={styles.container}>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.content}
       >
-        {isPressed ? (
-          <View style={styles.buttonContent}>
-            <ActivityIndicator size="small" color="white" style={styles.spinner} />
-            <Text style={styles.buttonText}>Starting...</Text>
-          </View>
-        ) : (
-          <Text style={styles.buttonText}>Start Playing</Text>
-        )}
-      </TouchableOpacity>
-      
-      {/* Test Button for Development */}
-      <TouchableOpacity 
-        style={[styles.testButton, styles.button]} 
-        onPress={() => {
-          console.log('🧪 Test Game Flow pressed');
-          dispatch(startTestGame());
-        }}
-        activeOpacity={0.8}
-      >
-        <Text style={styles.buttonText}>🧪 Test Game Flow</Text>
-      </TouchableOpacity>
-      
-      <View style={styles.infoContainer}>
-        <Text style={styles.infoText}>
-          🎨 Create hilarious AI images{'\n'}
-          🤳 Use your selfie{'\n'}
-          🗳️ Vote on the funniest results{'\n'}
-          🏆 Compete with friends
-        </Text>
-      </View>
-      
-      {/* Game Creation Modal */}
-      <Modal
-        visible={showGameCreation}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={() => setShowGameCreation(false)}
-      >
-        <View style={styles.modalContainer}>
-          <TouchableOpacity 
-            style={styles.closeButton}
-            onPress={() => setShowGameCreation(false)}
-          >
-            <Text style={styles.closeButtonText}>✕</Text>
-          </TouchableOpacity>
-          
-          <GameCreationFlow 
-            onGameCreated={() => {
-              setShowGameCreation(false);
-              console.log('🎮 Game created, should navigate to GameLobby');
-              // TODO: Navigation will be handled by the AppNavigator based on Redux state
-            }}
-          />
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.title}>AI Party Game 🎉</Text>
+          <Text style={styles.subtitle}>Welcome back, {user?.displayName}!</Text>
         </View>
-      </Modal>
-    </View>
+
+        {/* Game Options */}
+        <View style={styles.gameOptions}>
+          <TouchableOpacity style={styles.createButton} onPress={handleCreateGame}>
+            <Ionicons name="add-circle" size={30} color="#FFF" />
+            <Text style={styles.buttonText}>Create New Game</Text>
+          </TouchableOpacity>
+
+          {!showJoinInput ? (
+            <TouchableOpacity 
+              style={styles.joinButton} 
+              onPress={() => setShowJoinInput(true)}
+            >
+              <Ionicons name="enter" size={30} color="#FF6B6B" />
+              <Text style={styles.joinButtonText}>Join Game</Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.joinInputContainer}>
+              <TextInput
+                style={styles.codeInput}
+                placeholder="ABCD"
+                placeholderTextColor="#666"
+                value={joinCode}
+                onChangeText={setJoinCode}
+                maxLength={4}
+                autoCapitalize="characters"
+                autoCorrect={false}
+              />
+              <TouchableOpacity style={styles.goButton} onPress={handleJoinGame}>
+                <Text style={styles.goButtonText}>GO</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+
+        {/* How to Play */}
+        <View style={styles.howToPlay}>
+          <Text style={styles.howToPlayTitle}>How to Play:</Text>
+          <Text style={styles.howToPlayText}>
+            1. Answer silly prompts with your funniest responses{'\n'}
+            2. AI creates hilarious images with your face{'\n'}
+            3. Everyone votes on the funniest image{'\n'}
+            4. Most votes wins the round!
+          </Text>
+        </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000',
-    justifyContent: 'center',
-    alignItems: 'center',
+  },
+  content: {
+    flex: 1,
     padding: 20,
   },
+  header: {
+    alignItems: 'center',
+    marginTop: 40,
+    marginBottom: 50,
+  },
   title: {
-    fontSize: 32,
+    fontSize: 36,
     fontWeight: 'bold',
-    color: 'white',
+    color: '#FFF',
     marginBottom: 10,
-    textAlign: 'center',
   },
   subtitle: {
     fontSize: 18,
-    color: '#ccc',
-    marginBottom: 50,
-    textAlign: 'center',
+    color: '#888',
   },
-  button: {
-    backgroundColor: '#FF3B30',
-    paddingHorizontal: 40,
-    paddingVertical: 15,
-    borderRadius: 25,
-    minWidth: 200,
+  gameOptions: {
     alignItems: 'center',
-    elevation: 3,
-    shadowColor: '#FF3B30',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
+    gap: 20,
   },
-  buttonPressed: {
-    backgroundColor: '#CC2B20',
-    transform: [{ scale: 0.98 }],
-  },
-  buttonContent: {
+  createButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: '#FF6B6B',
+    paddingHorizontal: 30,
+    paddingVertical: 15,
+    borderRadius: 30,
+    gap: 10,
+    width: '80%',
+    justifyContent: 'center',
   },
   buttonText: {
-    color: 'white',
+    color: '#FFF',
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: '600',
   },
-  spinner: {
-    marginRight: 8,
-  },
-  infoContainer: {
-    marginTop: 50,
-    padding: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderRadius: 15,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  infoText: {
-    color: '#ccc',
-    fontSize: 16,
-    lineHeight: 24,
-    textAlign: 'center',
-  },
-  modalContainer: {
-    flex: 1,
-    backgroundColor: '#000',
-    padding: 20,
-  },
-  closeButton: {
-    position: 'absolute',
-    top: 50,
-    right: 20,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
+  joinButton: {
+    flexDirection: 'row',
     alignItems: 'center',
-    zIndex: 1,
+    backgroundColor: 'transparent',
+    borderWidth: 2,
+    borderColor: '#FF6B6B',
+    paddingHorizontal: 30,
+    paddingVertical: 15,
+    borderRadius: 30,
+    gap: 10,
+    width: '80%',
+    justifyContent: 'center',
   },
-  closeButtonText: {
-    color: 'white',
+  joinButtonText: {
+    color: '#FF6B6B',
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  joinInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    width: '80%',
+  },
+  codeInput: {
+    flex: 1,
+    backgroundColor: '#1a1a1a',
+    color: '#FFF',
+    fontSize: 24,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    paddingVertical: 15,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#FF6B6B',
+  },
+  goButton: {
+    backgroundColor: '#FF6B6B',
+    paddingHorizontal: 30,
+    paddingVertical: 15,
+    borderRadius: 10,
+  },
+  goButtonText: {
+    color: '#FFF',
     fontSize: 18,
     fontWeight: 'bold',
   },
-  testButton: {
-    backgroundColor: '#007AFF',
-    marginTop: 15,
+  howToPlay: {
+    marginTop: 60,
+    padding: 20,
+    backgroundColor: '#1a1a1a',
+    borderRadius: 15,
+  },
+  howToPlayTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#FF6B6B',
+    marginBottom: 10,
+  },
+  howToPlayText: {
+    fontSize: 14,
+    color: '#CCC',
+    lineHeight: 22,
   },
 });
-
-export default HomeScreen;

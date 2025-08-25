@@ -19,7 +19,7 @@ import { useNavigation } from '@react-navigation/native';
 import Animated, { FadeIn, SlideInUp } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { RootState } from '../store';
-import { startVotingPhase, resetGame } from '../store/slices/gameSlice';
+import { startVoting, endGame } from '../store/slices/gameSlice';
 
 export default function PromptScreen() {
   const [userResponse, setUserResponse] = useState('');
@@ -29,7 +29,7 @@ export default function PromptScreen() {
   const navigation = useNavigation();
   const dispatch = useDispatch();
   
-  const { currentPromptData, currentRound, status } = useSelector((state: RootState) => state.game);
+  const { currentPrompt, currentRound, status } = useSelector((state: RootState) => state.game);
   const { user } = useSelector((state: RootState) => state.auth);
 
   // Auto-navigate based on game status
@@ -75,7 +75,7 @@ export default function PromptScreen() {
           text: 'Leave Game',
           style: 'destructive',
           onPress: () => {
-            dispatch(resetGame());
+            dispatch(endGame());
           }
         }
       ]
@@ -116,7 +116,7 @@ export default function PromptScreen() {
             text: 'OK',
             onPress: () => {
               // For demo, go straight to voting
-              dispatch(startVotingPhase());
+              dispatch(startVoting([]));
             }
           }
         ]
@@ -130,7 +130,7 @@ export default function PromptScreen() {
     }
   };
 
-  if (!currentPromptData) {
+  if (!currentPrompt) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.centerContent}>
@@ -165,7 +165,7 @@ export default function PromptScreen() {
 
           <Animated.View entering={SlideInUp.delay(200).duration(500)} style={styles.promptContainer}>
             <Text style={styles.promptLabel}>YOUR PROMPT</Text>
-            <Text style={styles.promptText}>{currentPromptData.promptText}</Text>
+            <Text style={styles.promptText}>{currentPrompt.text}</Text>
           </Animated.View>
 
           <Animated.View entering={SlideInUp.delay(400).duration(500)} style={styles.responseContainer}>

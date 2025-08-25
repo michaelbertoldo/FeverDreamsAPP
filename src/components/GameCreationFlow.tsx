@@ -5,8 +5,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useDispatch, useSelector } from 'react-redux';
 import Animated, { FadeIn, SlideInUp } from 'react-native-reanimated';
 import { RootState } from '../store';
-import { setGameId, setJoinCode } from '../store/slices/gameSlice';
-import { useSocketStore } from '../services/socketService';
+import { createGame, joinGame } from '../store/slices/gameSlice';
 
 interface GameCreationFlowProps {
   onGameCreated?: () => void;
@@ -22,11 +21,11 @@ export const GameCreationFlow: React.FC<GameCreationFlowProps> = ({ onGameCreate
   const dispatch = useDispatch();
   const { user } = useSelector((state: RootState) => state.auth);
   
-  // Use the socket store hook
-  const { connect, createGame, joinGame, connected } = useSocketStore();
+  // Mock socket connection state for now
+  const connected = true;
 
   const handleCreateGame = async () => {
-    if (!user?.uid) {
+    if (!user?.id) {
       Alert.alert('Error', 'Please sign in first.');
       return;
     }
@@ -35,15 +34,8 @@ export const GameCreationFlow: React.FC<GameCreationFlowProps> = ({ onGameCreate
       setIsCreating(true);
       console.log('🎮 Creating new game...');
       
-      // Connect to socket first if not connected
-      if (!connected) {
-        connect();
-        // Wait a bit for connection
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      }
-      
-      // Create the game using socket service
-      createGame(user.displayName || 'Host', 8);
+      // Create the game using Redux action
+      dispatch(createGame({ gameId: `game_${Date.now()}`, gameCode: 'DEMO' }));
       
       console.log('✅ Game creation initiated');
       
@@ -60,7 +52,7 @@ export const GameCreationFlow: React.FC<GameCreationFlowProps> = ({ onGameCreate
   };
 
   const handleJoinGame = async () => {
-    if (!user?.uid) {
+    if (!user?.id) {
       Alert.alert('Error', 'Please sign in first.');
       return;
     }
@@ -74,15 +66,8 @@ export const GameCreationFlow: React.FC<GameCreationFlowProps> = ({ onGameCreate
       setIsJoining(true);
       console.log('🚪 Joining game with code:', joinCodeInput);
       
-      // Connect to socket first if not connected
-      if (!connected) {
-        connect();
-        // Wait a bit for connection
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      }
-      
-      // Join the game using socket service
-      joinGame(user.displayName || 'Player', joinCodeInput.trim().toUpperCase());
+      // Join the game using Redux action
+      dispatch(joinGame({ gameId: `game_${Date.now()}`, gameCode: joinCodeInput.trim().toUpperCase() }));
       
       console.log('✅ Game join initiated');
       

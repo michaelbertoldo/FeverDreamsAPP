@@ -1,237 +1,202 @@
-// src/store/slices/gameSlice.ts - Enhanced version
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 
-interface Player {
+export interface Player {
   id: string;
-  displayName: string;
-  isHost: boolean;
-  isReady: boolean;
+  name: string;
   score: number;
-}
-
-interface Prompt {
-  promptId: string;
-  text: string;
-  round: number;
-  assignedPlayers: string[];
-}
-
-interface Submission {
-  submissionId: string;
-  promptId: string;
-  playerId: string;
-  imageUrl: string;
-  votes: string[];
-}
-
-interface GameState {
-  gameId: string | null;
-  joinCode: string | null;
-  status: 'waiting' | 'playing' | 'voting' | 'results' | 'completed';
-  currentRound: number;
-  currentPrompt: number;
-  players: { [userId: string]: Player };
-  prompts: Prompt[];
-  submissions: Submission[];
   isHost: boolean;
-  currentPromptData: {
-    promptId: string | null;
-    promptText: string | null;
-    isAssigned: boolean;
-    isVoting: boolean;
-    assignedPlayers: string[];
-  } | null;
+  selfieUrl?: string;
+}
+
+export interface Prompt {
+  id: string;
+  text: string;
+  category: string;
+}
+
+export interface Submission {
+  playerId: string;
+  playerName: string;
+  imageUrl: string;
+  promptResponse: string;
+  votes: number;
+}
+
+export interface GameState {
+  currentGameId: string | null;
+  gameCode: string | null;
+  status: 'idle' | 'lobby' | 'playing' | 'voting' | 'roundResults' | 'finalResults';
+  currentRound: number;
+  totalRounds: number;
+  players: Player[];
+  currentPrompt: Prompt | null;
+  submissions: Submission[];
+  votingPairs: Array<{ pair: Submission[], promptId: string }>;
+  currentVotingIndex: number;
+  roundScores: Record<string, number>;
+  timeRemaining: number;
+  isHost: boolean;
 }
 
 const initialState: GameState = {
-  gameId: null,
-  joinCode: null,
-  status: 'waiting',
-  currentRound: 0,
-  currentPrompt: 0,
-  players: {},
-  prompts: [],
+  currentGameId: null,
+  gameCode: null,
+  status: 'idle',
+  currentRound: 1,
+  totalRounds: 3,
+  players: [],
+  currentPrompt: null,
   submissions: [],
+  votingPairs: [],
+  currentVotingIndex: 0,
+  roundScores: {},
+  timeRemaining: 0,
   isHost: false,
-  currentPromptData: null,
 };
+
+// Quiplash-style prompts organized by category
+export const PROMPTS: Prompt[] = [
+  // Round 1 - Easy/Silly
+  { id: '1', text: 'The worst superhero power would be turning into a {blank}', category: 'silly' },
+  { id: '2', text: 'A terrible name for a restaurant would be {blank}', category: 'silly' },
+  { id: '3', text: 'The most useless smartphone app would be {blank}', category: 'silly' },
+  { id: '4', text: 'The worst thing to say on a first date is {blank}', category: 'silly' },
+  { id: '5', text: 'A horrible theme for a birthday party would be {blank}', category: 'silly' },
+  
+  // Round 2 - Medium/Creative
+  { id: '6', text: 'If cats ruled the world, the first law would be {blank}', category: 'creative' },
+  { id: '7', text: 'The secret ingredient in grandma\'s cookies is actually {blank}', category: 'creative' },
+  { id: '8', text: 'Aliens refuse to visit Earth because of {blank}', category: 'creative' },
+  { id: '9', text: 'The real reason dinosaurs went extinct was {blank}', category: 'creative' },
+  { id: '10', text: 'In the future, people will pay millions for {blank}', category: 'creative' },
+  
+  // Round 3 - Hard/Absurd
+  { id: '11', text: 'The Pope\'s secret hobby is {blank}', category: 'absurd' },
+  { id: '12', text: 'The WiFi password in hell is {blank}', category: 'absurd' },
+  { id: '13', text: 'God\'s biggest regret when creating humans was {blank}', category: 'absurd' },
+  { id: '14', text: 'The title of Shakespeare\'s lost play was {blank}', category: 'absurd' },
+  { id: '15', text: 'The last thing you want to hear your surgeon say is {blank}', category: 'absurd' },
+];
 
 const gameSlice = createSlice({
   name: 'game',
   initialState,
   reducers: {
-    setGameId: (state, action: PayloadAction<string>) => {
-      state.gameId = action.payload;
-      state.status = 'waiting'; // Set initial status when game is created
-      console.log('📝 Game ID set:', action.payload);
+    createGame: (state, action: PayloadAction<{ gameId: string; gameCode: string }>) => {
+      state.currentGameId = action.payload.gameId;
+      state.gameCode = action.payload.gameCode;
+      state.status = 'lobby';
+      state.isHost = true;
+      state.currentRound = 1;
+      state.players = [];
+      state.submissions = [];
     },
     
-    setJoinCode: (state, action: PayloadAction<string>) => {
-      state.joinCode = action.payload;
-      console.log('📝 Join code set:', action.payload);
+    joinGame: (state, action: PayloadAction<{ gameId: string; gameCode: string }>) => {
+      state.currentGameId = action.payload.gameId;
+      state.gameCode = action.payload.gameCode;
+      state.status = 'lobby';
+      state.isHost = false;
     },
     
-    setGameStatus: (state, action: PayloadAction<{ 
-      status: GameState['status']; 
-      currentRound?: number; 
-      prompts?: Prompt[] 
-    }>) => {
-      state.status = action.payload.status;
-      if (action.payload.currentRound !== undefined) {
-        state.currentRound = action.payload.currentRound;
-      }
-      if (action.payload.prompts) {
-        state.prompts = action.payload.prompts;
-      }
-      console.log('🎮 Game status updated:', action.payload);
+    updatePlayers: (state, action: PayloadAction<Player[]>) => {
+      state.players = action.payload;
     },
     
-    addPlayer: (state, action: PayloadAction<{ 
-      playerId: string; 
-      displayName: string; 
-      isHost: boolean 
-    }>) => {
-      const { playerId, displayName, isHost } = action.payload;
-      state.players[playerId] = {
-        id: playerId,
-        displayName,
-        isHost,
-        isReady: false,
-        score: 0,
-      };
-      console.log('👤 Player added:', displayName);
-    },
-    
-    updatePlayerReady: (state, action: PayloadAction<{ 
-      playerId: string; 
-      isReady: boolean 
-    }>) => {
-      const { playerId, isReady } = action.payload;
-      if (state.players[playerId]) {
-        state.players[playerId].isReady = isReady;
-        console.log('✅ Player ready status updated:', { playerId, isReady });
-      }
-    },
-    
-    setCurrentPrompt: (state, action: PayloadAction<{
-      promptId: string;
-      promptText: string;
-      isAssigned: boolean;
-      isVoting?: boolean;
-      assignedPlayers?: string[];
-    }>) => {
-      state.currentPromptData = {
-        promptId: action.payload.promptId,
-        promptText: action.payload.promptText,
-        isAssigned: action.payload.isAssigned,
-        isVoting: action.payload.isVoting || false,
-        assignedPlayers: action.payload.assignedPlayers || [],
-      };
-      console.log('💭 Current prompt set:', action.payload);
-    },
-    
-    addSubmission: (state, action: PayloadAction<Submission>) => {
-      state.submissions.push(action.payload);
-      console.log('📸 Submission added:', action.payload.submissionId);
-    },
-    
-    addVote: (state, action: PayloadAction<{
-      submissionId: string;
-      voterId: string;
-    }>) => {
-      const submission = state.submissions.find(s => s.submissionId === action.payload.submissionId);
-      if (submission) {
-        submission.votes.push(action.payload.voterId);
-        console.log('🗳️ Vote added:', action.payload);
-      }
-    },
-    
-    // Handle successful game creation/joining
-    setGameCreated: (state, action: PayloadAction<{
-      gameId: string;
-      gameCode: string;
-      isHost: boolean;
-    }>) => {
-      state.gameId = action.payload.gameId;
-      state.joinCode = action.payload.gameCode;
-      state.isHost = action.payload.isHost;
-      state.status = 'waiting';
-      console.log('🎮 Game created/joined successfully:', action.payload);
-    },
-    
-    // Set host status
-    setIsHost: (state, action: PayloadAction<boolean>) => {
-      state.isHost = action.payload;
-      console.log('👑 Host status set:', action.payload);
-    },
-    
-    // Simulate game start for testing
-    startTestGame: (state) => {
+    startGame: (state) => {
       state.status = 'playing';
       state.currentRound = 1;
-      
-      // Add some test prompts
-      state.prompts = [
-        {
-          promptId: 'prompt_1',
-          text: 'You as a superhero saving the day',
-          round: 1,
-          assignedPlayers: Object.keys(state.players).slice(0, 2)
-        },
-        {
-          promptId: 'prompt_2', 
-          text: 'You at a disco party in the 70s',
-          round: 1,
-          assignedPlayers: Object.keys(state.players).slice(2, 4)
-        }
-      ];
-      
-      // Set current prompt for testing
-      state.currentPromptData = {
-        promptId: 'prompt_1',
-        promptText: 'You as a superhero saving the day',
-        isAssigned: true,
-        isVoting: false,
-        assignedPlayers: Object.keys(state.players).slice(0, 2)
-      };
-      
-      console.log('🧪 Test game started with status:', state.status);
+      // Select prompt based on round
+      const roundPrompts = PROMPTS.filter(p => {
+        if (state.currentRound === 1) return p.category === 'silly';
+        if (state.currentRound === 2) return p.category === 'creative';
+        return p.category === 'absurd';
+      });
+      state.currentPrompt = roundPrompts[Math.floor(Math.random() * roundPrompts.length)];
     },
     
-    // Transition to voting phase after prompt submission
-    startVotingPhase: (state) => {
+    setCurrentPrompt: (state, action: PayloadAction<Prompt>) => {
+      state.currentPrompt = action.payload;
+    },
+    
+    submitResponse: (state, action: PayloadAction<Submission>) => {
+      state.submissions.push(action.payload);
+    },
+    
+    startVoting: (state, action: PayloadAction<Array<{ pair: Submission[], promptId: string }>>) => {
       state.status = 'voting';
-      console.log('🗳️ Transitioning to voting phase');
+      state.votingPairs = action.payload;
+      state.currentVotingIndex = 0;
     },
     
-    // Transition to results phase after voting
-    startResultsPhase: (state) => {
-      state.status = 'results';
-      console.log('🏆 Transitioning to results phase');
+    nextVotingPair: (state) => {
+      if (state.currentVotingIndex < state.votingPairs.length - 1) {
+        state.currentVotingIndex += 1;
+      } else {
+        state.status = 'roundResults';
+      }
     },
     
-    // Reset game state
-    resetGame: (state) => {
-      return initialState;
+    updateScores: (state, action: PayloadAction<Record<string, number>>) => {
+      state.roundScores = action.payload;
+      // Update player scores
+      state.players = state.players.map(player => ({
+        ...player,
+        score: action.payload[player.id] || player.score,
+      }));
+    },
+    
+    nextRound: (state) => {
+      if (state.currentRound < state.totalRounds) {
+        state.currentRound += 1;
+        state.status = 'playing';
+        state.submissions = [];
+        state.votingPairs = [];
+        state.currentVotingIndex = 0;
+        
+        // Select new prompt for the round
+        const roundPrompts = PROMPTS.filter(p => {
+          if (state.currentRound === 1) return p.category === 'silly';
+          if (state.currentRound === 2) return p.category === 'creative';
+          return p.category === 'absurd';
+        });
+        state.currentPrompt = roundPrompts[Math.floor(Math.random() * roundPrompts.length)];
+      } else {
+        state.status = 'finalResults';
+      }
+    },
+    
+    endGame: (state) => {
+      state.currentGameId = null;
+      state.gameCode = null;
+      state.status = 'idle';
+      state.currentRound = 1;
+      state.players = [];
+      state.submissions = [];
+      state.votingPairs = [];
+      state.currentPrompt = null;
+      state.isHost = false;
+    },
+    
+    setTimeRemaining: (state, action: PayloadAction<number>) => {
+      state.timeRemaining = action.payload;
     },
   },
 });
 
 export const {
-  setGameId,
-  setJoinCode,
-  setGameStatus,
-  addPlayer,
-  updatePlayerReady,
+  createGame,
+  joinGame,
+  updatePlayers,
+  startGame,
   setCurrentPrompt,
-  addSubmission,
-  addVote,
-  setGameCreated,
-  setIsHost,
-  startTestGame,
-  startVotingPhase,
-  startResultsPhase,
-  resetGame,
+  submitResponse,
+  startVoting,
+  nextVotingPair,
+  updateScores,
+  nextRound,
+  endGame,
+  setTimeRemaining,
 } = gameSlice.actions;
 
 export default gameSlice.reducer;

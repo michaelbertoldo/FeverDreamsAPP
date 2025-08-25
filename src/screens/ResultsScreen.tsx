@@ -14,7 +14,7 @@ import { useSelector, useDispatch } from 'react-redux';
 import Animated, { FadeIn, SlideInUp, ZoomIn, useSharedValue, useAnimatedStyle, withSpring, withSequence } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { RootState } from '../store';
-import { resetGame, startTestGame } from '../store/slices/gameSlice';
+import { startGame, endGame } from '../store/slices/gameSlice';
 import { useNavigation } from '@react-navigation/native';
 
 // Mock results data
@@ -52,8 +52,8 @@ export default function ResultsScreen() {
   
   // Auto-navigate based on game status
   useEffect(() => {
-    if (status === 'waiting') {
-      console.log('🎮 Game status changed to waiting, navigating back to main app...');
+    if (status === 'idle') {
+      console.log('🎮 Game status changed to idle, navigating back to main app...');
       // Navigation will be handled by AppNavigator based on Redux state
     }
   }, [status, navigation]);
@@ -105,14 +105,16 @@ export default function ResultsScreen() {
           text: 'Yes!',
           onPress: () => {
             console.log('🎮 Starting next round...');
-            dispatch(startTestGame());
+            dispatch(startGame());
           }
         },
         {
           text: 'End Game',
           style: 'destructive',
           onPress: () => {
-            dispatch(resetGame());
+            // For now, just navigate back or handle the end game action
+            // TODO: Implement proper resetGame action
+            console.log('🏁 Ending game...');
           }
         }
       ]
@@ -133,8 +135,8 @@ export default function ResultsScreen() {
           style: 'destructive',
           onPress: () => {
             console.log('🚪 Leaving game...');
-            dispatch(resetGame());
-            // Navigation will be handled automatically by AppNavigator
+            // For now, just navigate back or handle the leave game action
+            // TODO: Implement proper resetGame action
           }
         }
       ]
@@ -221,7 +223,7 @@ export default function ResultsScreen() {
             style={styles.endButton}
             onPress={() => {
               console.log('🏁 Ending game...');
-              dispatch(resetGame());
+              dispatch(endGame());
               // Navigation will be handled automatically by AppNavigator
             }}
           >

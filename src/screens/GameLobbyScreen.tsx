@@ -1,320 +1,126 @@
 // src/screens/GameLobbyScreen.tsx - FIXED VERSION
-import React, { useState, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  SafeAreaView, 
+import React, { useEffect, useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
   TouchableOpacity,
-  Alert
+  SafeAreaView,
+  FlatList,
+  Share,
 } from 'react-native';
-import * as Clipboard from 'expo-clipboard';
-import { useSelector, useDispatch } from 'react-redux';
-import Animated, { 
-  FadeIn, 
-  SlideInUp,
-  useSharedValue,
-  useAnimatedStyle,
-  withRepeat,
-  withTiming,
-  Easing
-} from 'react-native-reanimated';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import { useDispatch, useSelector } from 'react-redux';
+import { Ionicons } from '@expo/vector-icons';
+import { StackNavigationProp } from '@react-navigation/stack';
+import { RootStackParamList } from '../navigation/AppNavigator';
 import { RootState } from '../store';
-import { startTestGame, addPlayer, setIsHost, updatePlayerReady } from '../store/slices/gameSlice';
+import { updatePlayers, startGame, Player } from '../store/slices/gameSlice';
+
+type GameLobbyNavigationProp = StackNavigationProp<RootStackParamList, 'GameLobby'>;
 
 export default function GameLobbyScreen() {
-  const [copied, setCopied] = useState(false);
+  const navigation = useNavigation<GameLobbyNavigationProp>();
+  const route = useRoute();
   const dispatch = useDispatch();
-  
-  // Get game state from Redux
-  const { 
-    gameId, 
-    joinCode, 
-    players, 
-    isHost 
-  } = useSelector((state: RootState) => state.game);
-  
+  const { gameCode, players, isHost } = useSelector((state: RootState) => state.game);
   const { user } = useSelector((state: RootState) => state.auth);
   
-  // Animation values
-  const pulseValue = useSharedValue(1);
-  
-  // Start pulse animation
+  // Simulate players joining (in production, this would come from Socket.IO)
   useEffect(() => {
-    pulseValue.value = withRepeat(
-      withTiming(1.1, { duration: 1000, easing: Easing.inOut(Easing.ease) }),
-      -1,
-      true
-    );
+    const mockPlayers: Player[] = [
+      { id: user?.id || '1', name: user?.displayName || 'You', score: 0, isHost: true },
+    ];
+    dispatch(updatePlayers(mockPlayers));
+    
+    // Simulate other players joining
+    const timer = setTimeout(() => {
+      const updatedPlayers = [
+        ...mockPlayers,
+        { id: '2', name: 'Player 2', score: 0, isHost: false },
+        { id: '3', name: 'Player 3', score: 0, isHost: false },
+      ];
+      dispatch(updatePlayers(updatedPlayers));
+    }, 2000);
+    
+    return () => clearTimeout(timer);
   }, []);
 
-  // Set up initial players and host status
-  useEffect(() => {
-    if (user && gameId) {
-      // Add current user as a player
-      dispatch(addPlayer({
-        playerId: user.uid,
-        displayName: user.displayName || 'You',
-        isHost: true
-      }));
-      
-      // Set as host
-      dispatch(setIsHost(true));
-      
-      // Mark current user as ready automatically for testing
-      dispatch(updatePlayerReady({
-        playerId: user.uid,
-        isReady: true
-      }));
-      
-      // Add some mock players for demo
-      setTimeout(() => {
-        dispatch(addPlayer({
-          playerId: 'demo_player_1',
-          displayName: 'Alice',
-          isHost: false
-        }));
-        // Auto-ready Alice after a short delay
-        setTimeout(() => {
-          dispatch(updatePlayerReady({
-            playerId: 'demo_player_1',
-            isReady: true
-          }));
-        }, 500);
-      }, 1000);
-      
-      setTimeout(() => {
-        dispatch(addPlayer({
-          playerId: 'demo_player_2', 
-          displayName: 'Bob',
-          isHost: false
-        }));
-        // Auto-ready Bob after a short delay
-        setTimeout(() => {
-          dispatch(updatePlayerReady({
-            playerId: 'demo_player_2',
-            isReady: true
-          }));
-        }, 500);
-      }, 2000);
-    }
-  }, [user, gameId, dispatch]);
-  
-  // Animated styles
-  const pulseStyle = useAnimatedStyle(() => {
-    return {
-      transform: [{ scale: pulseValue.value }]
-    };
-  });
-  
-  // Copy join code to clipboard
-  const handleCopyCode = async () => {
-    if (joinCode) {
-      await Clipboard.setStringAsync(joinCode);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+  const handleShareCode = async () => {
+    try {
+      await Share.share({
+        message: `Join my AI Party Game! Room code: ${gameCode}`,
+      });
+    } catch (error) {
+      console.error('Error sharing:', error);
     }
   };
 
-  // Toggle ready status for current user
-  const handleToggleReady = () => {
-    if (!user?.uid) return;
-    
-    const currentPlayer = players[user.uid];
-    const newReadyStatus = !currentPlayer?.isReady;
-    
-    dispatch(updatePlayerReady({
-      playerId: user.uid,
-      isReady: newReadyStatus
-    }));
-    
-    console.log('🔄 Ready status toggled:', newReadyStatus);
-  };
-  
-  // Start the game (test version)
-  const handleStartTestGame = () => {
-    const playerCount = Object.keys(players).length;
-    const playersArray = Object.values(players);
-    const readyCount = playersArray.filter((p: any) => p.isReady).length;
-    
-    console.log('🎮 Start game check:', { playerCount, readyCount, players });
-    
-    // Need at least 2 ready players
-    if (readyCount < 2) {
-      Alert.alert(
-        'Not Enough Ready Players',
-        `Need at least 2 ready players to start. Currently ${readyCount} ready.`,
-        [{ text: 'OK' }]
-      );
-      return;
-    }
-
-    // Always allow start if we have enough ready players
-    Alert.alert(
-      'Start Game?',
-      `Ready to start with ${readyCount} players?`,
-      [
-        {
-          text: 'Let\'s Go! 🚀',
-          onPress: () => {
-            console.log('🚀 Starting game with ready players...');
-            // Force start the test game
-            dispatch(startTestGame());
-          }
-        },
-        {
-          text: 'Wait',
-          style: 'cancel'
-        }
-      ]
-    );
+  const handleStartGame = () => {
+    dispatch(startGame());
+    navigation.navigate('GamePlay');
   };
 
-  // Check if current user is ready
-  const isCurrentUserReady = user?.uid ? players[user.uid]?.isReady : false;
-  const playerCount = Object.keys(players).length;
-  const readyCount = Object.values(players).filter((p: any) => p.isReady).length;
+  const renderPlayer = ({ item }: { item: Player }) => (
+    <View style={styles.playerItem}>
+      <View style={styles.playerAvatar}>
+        <Text style={styles.avatarText}>{item.name[0]}</Text>
+      </View>
+      <Text style={styles.playerName}>{item.name}</Text>
+      {item.isHost && (
+        <View style={styles.hostBadge}>
+          <Text style={styles.hostText}>HOST</Text>
+        </View>
+      )}
+    </View>
+  );
 
   return (
     <SafeAreaView style={styles.container}>
-      <Animated.View 
-        entering={FadeIn.duration(500)} 
-        style={styles.header}
-      >
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <Ionicons name="arrow-back" size={28} color="#FFF" />
+        </TouchableOpacity>
         <Text style={styles.title}>Game Lobby</Text>
-        {joinCode && (
-          <Animated.View style={[styles.codeContainer, pulseStyle]}>
-            <Text style={styles.codeLabel}>JOIN CODE</Text>
-            <Text style={styles.codeText}>{joinCode}</Text>
-            <TouchableOpacity
-              style={styles.copyButton}
-              onPress={handleCopyCode}
-            >
-              <Text style={styles.copyButtonText}>
-                {copied ? '✅ Copied!' : '📋 Copy'}
-              </Text>
-            </TouchableOpacity>
-          </Animated.View>
-        )}
-      </Animated.View>
-      
-      <Animated.View 
-        entering={SlideInUp.delay(300).duration(500)}
-        style={styles.content}
-      >
-        <View style={styles.playersHeader}>
-          <Text style={styles.playersTitle}>
-            Players ({playerCount}/8)
+        <View style={{ width: 28 }} />
+      </View>
+
+      <View style={styles.codeContainer}>
+        <Text style={styles.codeLabel}>Room Code</Text>
+        <Text style={styles.gameCode}>{gameCode}</Text>
+        <TouchableOpacity style={styles.shareButton} onPress={handleShareCode}>
+          <Ionicons name="share-social" size={20} color="#FFF" />
+          <Text style={styles.shareText}>Share Code</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.playersSection}>
+        <Text style={styles.sectionTitle}>Players ({players.length}/8)</Text>
+        <FlatList
+          data={players}
+          renderItem={renderPlayer}
+          keyExtractor={(item) => item.id}
+          style={styles.playersList}
+        />
+      </View>
+
+      {isHost && (
+        <TouchableOpacity
+          style={[styles.startButton, players.length < 3 && styles.disabledButton]}
+          onPress={handleStartGame}
+          disabled={players.length < 3}
+        >
+          <Text style={styles.startButtonText}>
+            {players.length < 3 ? `Need ${3 - players.length} more players` : 'Start Game'}
           </Text>
-          <Text style={styles.readyStatus}>
-            {readyCount}/{playerCount} Ready
-          </Text>
+        </TouchableOpacity>
+      )}
+
+      {!isHost && (
+        <View style={styles.waitingContainer}>
+          <Text style={styles.waitingText}>Waiting for host to start...</Text>
         </View>
-        
-        <View style={styles.playersList}>
-          {Object.values(players).map((player: any) => (
-            <Animated.View 
-              key={player.id}
-              entering={FadeIn.duration(500)}
-              style={[
-                styles.playerCard,
-                player.isReady && styles.playerCardReady
-              ]}
-            >
-              <View style={styles.playerInfo}>
-                <Text style={styles.playerName}>
-                  {player.displayName}
-                  {player.isHost && ' 👑'}
-                </Text>
-                <View style={styles.playerStatusContainer}>
-                  <Text style={[
-                    styles.playerStatus,
-                    player.isReady && styles.playerStatusReady
-                  ]}>
-                    {player.isReady ? '✅ Ready' : '⏳ Not Ready'}
-                  </Text>
-                </View>
-              </View>
-            </Animated.View>
-          ))}
-          
-          {/* Show empty slots */}
-          {Array.from({ length: Math.max(0, 4 - playerCount) }).map((_, index) => (
-            <View key={`empty_${index}`} style={[styles.playerCard, styles.emptyPlayerCard]}>
-              <Text style={styles.emptyPlayerText}>Waiting for player...</Text>
-            </View>
-          ))}
-        </View>
-      </Animated.View>
-      
-      <Animated.View 
-        entering={FadeIn.delay(500).duration(500)}
-        style={styles.footer}
-      >
-        {/* Ready Button for ALL Players (including host) */}
-        {user?.uid && (
-          <TouchableOpacity 
-            style={[
-              styles.readyButton,
-              isCurrentUserReady && styles.readyButtonActive
-            ]}
-            onPress={handleToggleReady}
-          >
-            <Text style={[
-              styles.readyButtonText,
-              isCurrentUserReady && styles.readyButtonTextActive
-            ]}>
-              {isCurrentUserReady ? '✅ Ready!' : '⏳ Mark as Ready'}
-            </Text>
-          </TouchableOpacity>
-        )}
-        
-        {/* Start Button for Host */}
-        {isHost ? (
-          <View style={styles.hostControls}>
-            <TouchableOpacity 
-              style={[
-                styles.startButton,
-                readyCount < 2 && styles.startButtonDisabled
-              ]}
-              onPress={handleStartTestGame}
-            >
-              <Text style={styles.startButtonText}>
-                {readyCount < 2 
-                  ? `🎮 Need 2+ Ready (${readyCount}/${playerCount})` 
-                  : `🎮 Start Game (${readyCount}/${playerCount} ready)`}
-              </Text>
-            </TouchableOpacity>
-            
-            {/* Debug button - remove this later */}
-            <TouchableOpacity 
-              style={[styles.startButton, { backgroundColor: '#34C759' }]}
-              onPress={() => {
-                console.log('🧪 Debug: Force starting game...');
-                dispatch(startTestGame());
-              }}
-            >
-              <Text style={styles.startButtonText}>🧪 Debug: Force Start</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <View style={styles.waitingContainer}>
-            <Text style={styles.waitingText}>
-              Waiting for host to start the game...
-            </Text>
-          </View>
-        )}
-        
-        <View style={styles.gameInfo}>
-          <Text style={styles.gameInfoTitle}>🎯 How to Play</Text>
-          <Text style={styles.gameInfoText}>
-            • Get funny prompts{'\n'}
-            • Create AI images with your selfie{'\n'}
-            • Vote on the funniest results{'\n'}
-            • Win points for votes!
-          </Text>
-        </View>
-      </Animated.View>
+      )}
     </SafeAreaView>
   );
 }
@@ -325,186 +131,121 @@ const styles = StyleSheet.create({
     backgroundColor: '#000',
   },
   header: {
-    alignItems: 'center',
-    padding: 20,
-    paddingTop: 40,
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: 'white',
-    marginBottom: 20,
-  },
-  codeContainer: {
-    backgroundColor: 'rgba(255, 59, 48, 0.1)',
-    borderRadius: 15,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 59, 48, 0.3)',
-    alignItems: 'center',
-  },
-  codeLabel: {
-    color: '#FF3B30',
-    fontSize: 12,
-    fontWeight: 'bold',
-    marginBottom: 5,
-  },
-  codeText: {
-    color: 'white',
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 10,
-    letterSpacing: 2,
-  },
-  copyButton: {
-    backgroundColor: '#FF3B30',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-  },
-  copyButtonText: {
-    color: 'white',
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  content: {
-    flex: 1,
-    padding: 20,
-  },
-  playersHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    padding: 20,
   },
-  playersTitle: {
-    color: 'white',
-    fontSize: 20,
+  title: {
+    fontSize: 24,
     fontWeight: 'bold',
+    color: '#FFF',
   },
-  readyStatus: {
-    color: '#34C759',
+  codeContainer: {
+    alignItems: 'center',
+    padding: 20,
+    margin: 20,
+    backgroundColor: '#1a1a1a',
+    borderRadius: 15,
+  },
+  codeLabel: {
     fontSize: 16,
+    color: '#888',
+    marginBottom: 10,
+  },
+  gameCode: {
+    fontSize: 48,
+    fontWeight: 'bold',
+    color: '#FF6B6B',
+    letterSpacing: 8,
+  },
+  shareButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 15,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    backgroundColor: '#333',
+    borderRadius: 20,
+  },
+  shareText: {
+    color: '#FFF',
+    fontSize: 14,
+  },
+  playersSection: {
+    flex: 1,
+    padding: 20,
+  },
+  sectionTitle: {
+    fontSize: 18,
     fontWeight: '600',
+    color: '#FFF',
+    marginBottom: 15,
   },
   playersList: {
     flex: 1,
   },
-  playerCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderRadius: 15,
-    padding: 15,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  playerCardReady: {
-    backgroundColor: 'rgba(52, 199, 89, 0.1)',
-    borderColor: 'rgba(52, 199, 89, 0.3)',
-  },
-  emptyPlayerCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.02)',
-    borderColor: 'rgba(255, 255, 255, 0.05)',
-    borderStyle: 'dashed',
-  },
-  playerInfo: {
+  playerItem: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    padding: 15,
+    backgroundColor: '#1a1a1a',
+    borderRadius: 10,
+    marginBottom: 10,
+  },
+  playerAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FF6B6B',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 15,
+  },
+  avatarText: {
+    color: '#FFF',
+    fontSize: 18,
+    fontWeight: 'bold',
   },
   playerName: {
-    color: 'white',
+    flex: 1,
     fontSize: 16,
-    fontWeight: '600',
+    color: '#FFF',
   },
-  playerStatusContainer: {
-    alignItems: 'center',
+  hostBadge: {
+    backgroundColor: '#FFD700',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
-  playerStatus: {
-    color: '#FF9500',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  playerStatusReady: {
-    color: '#34C759',
-  },
-  emptyPlayerText: {
-    color: '#666',
-    fontSize: 14,
-    fontStyle: 'italic',
-    textAlign: 'center',
-  },
-  footer: {
-    padding: 20,
-    gap: 15,
-  },
-  readyButton: {
-    backgroundColor: '#007AFF',
-    paddingVertical: 15,
-    borderRadius: 25,
-    alignItems: 'center',
-  },
-  readyButtonActive: {
-    backgroundColor: '#34C759',
-  },
-  readyButtonText: {
-    color: 'white',
-    fontSize: 18,
+  hostText: {
+    fontSize: 12,
     fontWeight: 'bold',
-  },
-  readyButtonTextActive: {
-    color: 'white',
+    color: '#000',
   },
   startButton: {
-    backgroundColor: '#FF3B30',
-    paddingVertical: 15,
-    borderRadius: 25,
+    backgroundColor: '#FF6B6B',
+    margin: 20,
+    padding: 18,
+    borderRadius: 30,
     alignItems: 'center',
   },
-  startButtonDisabled: {
-    backgroundColor: '#666',
+  disabledButton: {
+    backgroundColor: '#444',
   },
   startButtonText: {
-    color: 'white',
     fontSize: 18,
     fontWeight: 'bold',
+    color: '#FFF',
   },
   waitingContainer: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderRadius: 15,
-    padding: 20,
+    margin: 20,
+    padding: 18,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   waitingText: {
-    color: '#ccc',
     fontSize: 16,
-    textAlign: 'center',
-  },
-  gameInfo: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderRadius: 15,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  gameInfoTitle: {
-    color: 'white',
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 10,
-    textAlign: 'center',
-  },
-  gameInfoText: {
-    color: '#ccc',
-    fontSize: 14,
-    lineHeight: 22,
-    textAlign: 'center',
-  },
-  hostControls: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 10,
+    color: '#888',
   },
 });

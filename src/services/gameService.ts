@@ -3,17 +3,15 @@ import axios from 'axios';
 import { auth, db } from '../config/firebase';
 import { doc, setDoc, updateDoc, getDoc, collection, addDoc } from 'firebase/firestore';
 import { store } from '../store';
-import { 
-  setGameId, 
-  setJoinCode,
-  setGameCreated
+import {
+  createGame,
+  joinGame
 } from '../store/slices/gameSlice';
-import { joinGame, submitImage } from './socketService';
 
 const API_URL = 'https://your-firebase-function-url.com';
 
 // Create a new game
-export const createGame = async (displayName: string ): Promise<string> => {
+export const createGameService = async (displayName: string): Promise<string> => {
   try {
     const userId = auth.currentUser?.uid;
     if (!userId) throw new Error('User not authenticated');
@@ -23,11 +21,7 @@ export const createGame = async (displayName: string ): Promise<string> => {
     const joinCode = generateJoinCode();
     
     // Update Redux store
-    store.dispatch(setGameId(gameId));
-    store.dispatch(setJoinCode(joinCode));
-    
-    // Connect to Socket.IO and join game
-    joinGame(gameId, displayName);
+    store.dispatch(createGame({ gameId, gameCode: joinCode }));
     
     return gameId;
   } catch (error) {
@@ -46,11 +40,7 @@ export const joinExistingGame = async (joinCode: string, displayName: string): P
     const gameId = `game_joined_${Date.now()}`;
     
     // Update Redux store
-    store.dispatch(setGameId(gameId));
-    store.dispatch(setJoinCode(joinCode));
-    
-    // Connect to Socket.IO and join game
-    joinGame(gameId, displayName);
+    store.dispatch(joinGame({ gameId, gameCode: joinCode }));
     
     return gameId;
   } catch (error) {
@@ -74,8 +64,8 @@ export const submitImageToGame = async (gameId: string, promptId: string, imageU
       createdAt: new Date()
     });
     
-    // Emit Socket.IO event
-    submitImage(gameId, promptId, imageUrl);
+    // Emit Socket.IO event - commented out for now
+    // submitImage(gameId, promptId, imageUrl);
   } catch (error) {
     console.error('Submit image error:', error);
     throw error;

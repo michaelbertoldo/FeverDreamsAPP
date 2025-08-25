@@ -1,208 +1,147 @@
 // src/screens/VotingScreen.tsx - Basic Implementation
 import React, { useState, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  TouchableOpacity, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
   SafeAreaView,
-  ScrollView,
-  Alert,
-  Image
+  Image,
+  Dimensions,
 } from 'react-native';
-import { useSelector, useDispatch } from 'react-redux';
-import Animated, { FadeIn, SlideInUp } from 'react-native-reanimated';
-import { RootState } from '../store';
-import { startResultsPhase, resetGame } from '../store/slices/gameSlice';
 import { useNavigation } from '@react-navigation/native';
-import { Ionicons } from '@expo/vector-icons';
+import { useDispatch, useSelector } from 'react-redux';
+import { StackNavigationProp } from '@react-navigation/stack';
+import { RootStackParamList } from '../navigation/AppNavigator';
+import { RootState } from '../store';
+import { nextVotingPair, updateScores } from '../store/slices/gameSlice';
 
-// Mock submission data for testing
-const MOCK_SUBMISSIONS = [
-  {
-    id: 'sub_1',
-    imageUrl: 'https://picsum.photos/300/300?random=1',
-    playerName: 'Player 1',
-    votes: 0,
-  },
-  {
-    id: 'sub_2', 
-    imageUrl: 'https://picsum.photos/300/300?random=2',
-    playerName: 'Player 2',
-    votes: 0,
-  },
-  {
-    id: 'sub_3',
-    imageUrl: 'https://picsum.photos/300/300?random=3', 
-    playerName: 'Player 3',
-    votes: 0,
-  },
-];
+type VotingNavigationProp = StackNavigationProp<RootStackParamList, 'Voting'>;
+
+const { width: screenWidth } = Dimensions.get('window');
 
 export default function VotingScreen() {
-  const [selectedSubmission, setSelectedSubmission] = useState<string | null>(null);
-  const [hasVoted, setHasVoted] = useState(false);
-  const [submissions, setSubmissions] = useState(MOCK_SUBMISSIONS);
-  
-  const navigation = useNavigation();
+  const navigation = useNavigation<VotingNavigationProp>();
   const dispatch = useDispatch();
+  const { votingPairs, currentVotingIndex, currentPrompt, currentRound } = useSelector(
+    (state: RootState) => state.game
+  );
+  const { user } = useSelector((state: RootState) => state.auth);
   
-  const { currentPromptData, currentRound, status } = useSelector((state: RootState) => state.game);
-  
-  // Auto-navigate based on game status
-  useEffect(() => {
-    if (status === 'results') {
-      console.log('🎮 Game status changed to results, navigating...');
-      // Navigation will be handled by AppNavigator based on Redux state
-    }
-  }, [status, navigation]);
+  const [hasVoted, setHasVoted] = useState(false);
+  const [votedFor, setVotedFor] = useState<string | null>(null);
+  const [timer, setTimer] = useState(15);
 
-  const handleVote = (submissionId: string) => {
+  const currentPair = votingPairs[currentVotingIndex];
+
+  useEffect(() => {
+    // Reset vote state when new pair loads
+    setHasVoted(false);
+    setVotedFor(null);
+    setTimer(15);
+    
+    // Countdown timer
+    const interval = setInterval(() => {
+      setTimer((prev) => {
+        if (prev <= 1) {
+          handleNextPair();
+          return 15;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [currentVotingIndex]);
+
+  const handleVote = (playerId: string) => {
     if (hasVoted) return;
     
-    setSelectedSubmission(submissionId);
-    
-    // Update vote count
-    setSubmissions(prev => 
-      prev.map(sub => 
-        sub.id === submissionId 
-          ? { ...sub, votes: sub.votes + 1 }
-          : sub
-      )
-    );
-    
     setHasVoted(true);
+    setVotedFor(playerId);
     
-    console.log('🗳️ Vote submitted for:', submissionId);
-    
-    // Show success and move to results after delay
-    Alert.alert(
-      'Vote Submitted!',
-      'Thanks for voting! Waiting for other players...',
-      [
-        {
-          text: 'OK',
-          onPress: () => {
-            // For demo, go to results after 2 seconds
-            setTimeout(() => {
-              dispatch(startResultsPhase());
-            }, 2000);
-          }
-        }
-      ]
-    );
+    // In production, send vote to server
+    setTimeout(() => {
+      handleNextPair();
+    }, 1500);
   };
 
-  const handleLeaveGame = () => {
-    Alert.alert(
-      'Leave Game',
-      'Are you sure you want to leave the game? This action cannot be undone.',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Leave',
-          onPress: () => {
-            dispatch(resetGame());
-            navigation.navigate('Home' as never);
-          },
-        },
-      ]
-    );
+  const handleNextPair = () => {
+    if (currentVotingIndex < votingPairs.length - 1) {
+      dispatch(nextVotingPair());
+    } else {
+      // Move to round results
+      navigation.navigate('RoundResults');
+    }
   };
 
-  const renderSubmission = (submission: typeof MOCK_SUBMISSIONS[0]) => (
-    <Animated.View 
-      key={submission.id}
-      entering={SlideInUp.delay(300).duration(500)}
-      style={styles.submissionCard}
-    >
-      <Image 
-        source={{ uri: submission.imageUrl }} 
-        style={styles.submissionImage}
-      />
-      
-      <View style={styles.submissionInfo}>
-        <Text style={styles.playerName}>{submission.playerName}</Text>
-        <Text style={styles.voteCount}>🗳️ {submission.votes} votes</Text>
-      </View>
-      
-      <TouchableOpacity
-        style={[
-          styles.voteButton,
-          selectedSubmission === submission.id && styles.voteButtonSelected,
-          hasVoted && styles.voteButtonDisabled
-        ]}
-        onPress={() => handleVote(submission.id)}
-        disabled={hasVoted}
-      >
-        <Text style={[
-          styles.voteButtonText,
-          selectedSubmission === submission.id && styles.voteButtonTextSelected
-        ]}>
-          {selectedSubmission === submission.id ? '✅ Voted!' : '👍 Vote'}
-        </Text>
-      </TouchableOpacity>
-    </Animated.View>
-  );
+  if (!currentPair) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <Text style={styles.loadingText}>Loading voting...</Text>
+      </SafeAreaView>
+    );
+  }
+
+  const promptText = currentPrompt?.text.replace('{blank}', '_____') || '';
 
   return (
     <SafeAreaView style={styles.container}>
-      <Animated.View entering={FadeIn.duration(500)} style={styles.header}>
-        <View style={styles.headerContent}>
-          <TouchableOpacity 
-            style={styles.backButton}
-            onPress={handleLeaveGame}
-          >
-            <Ionicons name="close-circle" size={28} color="#ccc" />
-          </TouchableOpacity>
-          <Text style={styles.roundText}>Round {currentRound}</Text>
-          <Text style={styles.title}>🗳️ Vote Time!</Text>
+      <View style={styles.header}>
+        <Text style={styles.roundText}>Round {currentRound} - Voting</Text>
+        <View style={styles.timerContainer}>
+          <Text style={[styles.timer, timer <= 5 && styles.timerUrgent]}>{timer}s</Text>
         </View>
-      </Animated.View>
+      </View>
 
-      <Animated.View entering={SlideInUp.delay(200).duration(500)} style={styles.promptContainer}>
-        <Text style={styles.promptLabel}>THE PROMPT WAS</Text>
-        <Text style={styles.promptText}>
-          {currentPromptData?.promptText || 'You as a superhero saving the day'}
-        </Text>
-      </Animated.View>
+      <View style={styles.promptDisplay}>
+        <Text style={styles.promptText}>{promptText}</Text>
+      </View>
 
-      <ScrollView 
-        style={styles.submissionsContainer}
-        contentContainerStyle={styles.submissionsContent}
-        showsVerticalScrollIndicator={false}
-      >
-        <Text style={styles.instructionText}>
-          🎨 Vote for the funniest AI-generated image!
-        </Text>
+      <View style={styles.votingContainer}>
+        <Text style={styles.instructionText}>Tap the funniest image!</Text>
         
-        {submissions.map(renderSubmission)}
-        
-        {hasVoted && (
-          <Animated.View 
-            entering={FadeIn.duration(500)}
-            style={styles.waitingContainer}
-          >
-            <Text style={styles.waitingText}>
-              ⏳ Waiting for other players to vote...
-            </Text>
-            <Text style={styles.nextText}>
-              Results coming up next!
-            </Text>
-          </Animated.View>
-        )}
-      </ScrollView>
+        <View style={styles.imagesContainer}>
+          {currentPair.pair.map((submission, index) => (
+            <TouchableOpacity
+              key={submission.playerId}
+              style={[
+                styles.imageOption,
+                hasVoted && votedFor === submission.playerId && styles.votedOption,
+                hasVoted && votedFor !== submission.playerId && styles.notVotedOption,
+              ]}
+              onPress={() => handleVote(submission.playerId)}
+              disabled={hasVoted}
+            >
+              <Image source={{ uri: submission.imageUrl }} style={styles.image} />
+              <View style={styles.responseContainer}>
+                <Text style={styles.responseText} numberOfLines={2}>
+                  {submission.promptResponse}
+                </Text>
+              </View>
+              {hasVoted && votedFor === submission.playerId && (
+                <View style={styles.votedBadge}>
+                  <Text style={styles.votedText}>YOUR VOTE</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          ))}
+        </View>
 
-      {!hasVoted && (
-        <View style={styles.infoContainer}>
-          <Text style={styles.infoText}>
-            💡 You can't vote for your own image. Choose the one that made you laugh the most!
+        <View style={styles.progressContainer}>
+          <View style={styles.progressBar}>
+            <View 
+              style={[
+                styles.progressFill, 
+                { width: `${((currentVotingIndex + 1) / votingPairs.length) * 100}%` }
+              ]} 
+            />
+          </View>
+          <Text style={styles.progressText}>
+            {currentVotingIndex + 1} of {votingPairs.length}
           </Text>
         </View>
-      )}
+      </View>
     </SafeAreaView>
   );
 }
@@ -211,153 +150,124 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000',
-    padding: 20,
   },
   header: {
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  headerContent: {
-    alignItems: 'center',
-  },
-  backButton: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    padding: 10,
-  },
-  backButtonText: {
-    color: '#ccc',
-    fontSize: 14,
-  },
-  roundText: {
-    color: '#FF3B30',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  title: {
-    color: 'white',
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginTop: 5,
-  },
-  promptContainer: {
-    backgroundColor: 'rgba(255, 59, 48, 0.1)',
-    borderRadius: 15,
-    padding: 15,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 59, 48, 0.3)',
-  },
-  promptLabel: {
-    color: '#FF3B30',
-    fontSize: 12,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 5,
-  },
-  promptText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  submissionsContainer: {
-    flex: 1,
-  },
-  submissionsContent: {
-    paddingBottom: 20,
-  },
-  instructionText: {
-    color: 'white',
-    fontSize: 18,
-    fontWeight: '600',
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  submissionCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderRadius: 15,
-    padding: 15,
-    marginBottom: 15,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  submissionImage: {
-    width: '100%',
-    height: 200,
-    borderRadius: 10,
-    marginBottom: 10,
-  },
-  submissionInfo: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
-  },
-  playerName: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  voteCount: {
-    color: '#ccc',
-    fontSize: 14,
-  },
-  voteButton: {
-    backgroundColor: '#007AFF',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 20,
-    alignItems: 'center',
-  },
-  voteButtonSelected: {
-    backgroundColor: '#34C759',
-  },
-  voteButtonDisabled: {
-    backgroundColor: '#666',
-  },
-  voteButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  voteButtonTextSelected: {
-    color: 'white',
-  },
-  waitingContainer: {
-    backgroundColor: 'rgba(52, 199, 89, 0.1)',
-    borderRadius: 15,
     padding: 20,
-    marginTop: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(52, 199, 89, 0.3)',
-    alignItems: 'center',
   },
-  waitingText: {
-    color: '#34C759',
+  roundText: {
+    fontSize: 18,
+    color: '#888',
+  },
+  timerContainer: {
+    backgroundColor: '#1a1a1a',
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  timer: {
     fontSize: 18,
     fontWeight: 'bold',
-    textAlign: 'center',
+    color: '#FFF',
   },
-  nextText: {
-    color: '#ccc',
+  timerUrgent: {
+    color: '#FF6B6B',
+  },
+  promptDisplay: {
+    backgroundColor: '#1a1a1a',
+    margin: 20,
+    padding: 20,
+    borderRadius: 15,
+  },
+  promptText: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#FFF',
+    textAlign: 'center',
+    lineHeight: 28,
+  },
+  votingContainer: {
+    flex: 1,
+    paddingHorizontal: 20,
+  },
+  instructionText: {
+    fontSize: 16,
+    color: '#888',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  imagesContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 15,
+  },
+  imageOption: {
+    flex: 1,
+    backgroundColor: '#1a1a1a',
+    borderRadius: 15,
+    overflow: 'hidden',
+    borderWidth: 3,
+    borderColor: 'transparent',
+  },
+  votedOption: {
+    borderColor: '#4CAF50',
+  },
+  notVotedOption: {
+    opacity: 0.3,
+  },
+  image: {
+    width: '100%',
+    height: screenWidth * 0.4,
+    resizeMode: 'cover',
+  },
+  responseContainer: {
+    padding: 10,
+  },
+  responseText: {
     fontSize: 14,
+    color: '#FFF',
     textAlign: 'center',
-    marginTop: 5,
   },
-  infoContainer: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderRadius: 10,
-    padding: 15,
+  votedBadge: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    backgroundColor: '#4CAF50',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+  },
+  votedText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#FFF',
+  },
+  progressContainer: {
+    marginTop: 30,
+    marginBottom: 20,
+  },
+  progressBar: {
+    height: 6,
+    backgroundColor: '#333',
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: '#FF6B6B',
+  },
+  progressText: {
+    fontSize: 14,
+    color: '#888',
+    textAlign: 'center',
     marginTop: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
-  infoText: {
-    color: '#ccc',
-    fontSize: 14,
+  loadingText: {
+    fontSize: 18,
+    color: '#888',
     textAlign: 'center',
-    lineHeight: 20,
+    marginTop: 50,
   },
 });

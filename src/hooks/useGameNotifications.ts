@@ -11,7 +11,7 @@ export const useGameNotifications = () => {
     const handleGameStateChange = async () => {
       try {
         switch (gameState.status) {
-          case 'waiting':
+          case 'lobby':
             await sendNotification(
               'Game Ready!',
               'Waiting for players to join...'
@@ -19,10 +19,10 @@ export const useGameNotifications = () => {
             break;
             
           case 'playing':
-            if (gameState.currentPromptData?.promptText) {
+            if (gameState.currentPrompt?.text) {
               await sendNotification(
                 'Your Turn!',
-                `New prompt: ${gameState.currentPromptData.promptText}`
+                `New prompt: ${gameState.currentPrompt.text}`
               );
             }
             break;
@@ -34,14 +34,14 @@ export const useGameNotifications = () => {
             );
             break;
             
-          case 'results':
+          case 'roundResults':
             await sendNotification(
               'Round Complete!',
               'Check out the results!'
             );
             break;
             
-          case 'completed':
+          case 'finalResults':
             await handleGameComplete(gameState);
             break;
         }
@@ -51,7 +51,7 @@ export const useGameNotifications = () => {
     };
     
     handleGameStateChange();
-  }, [gameState.status, gameState.currentPromptData]);
+  }, [gameState.status, gameState.currentPrompt]);
   
   const handleGameComplete = async (gameData: typeof gameState) => {
     try {
@@ -64,7 +64,7 @@ export const useGameNotifications = () => {
         
         await sendNotification(
           'Game Complete! 🎉',
-          `${winner.displayName} wins with ${winner.score} points!`
+          `${winner.name} wins with ${winner.score} points!`
         );
       } else {
         await sendNotification(

@@ -78,7 +78,7 @@ export default function OptimizedGameScreen() {
   const renderStartTime = performance.now();
   
   // State
-  const [currentPrompt, setCurrentPrompt] = useState('');
+  const [localPrompt, setLocalPrompt] = useState('');
   const [generatedImage, setGeneratedImage] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [userInput, setUserInput] = useState('');
@@ -90,9 +90,9 @@ export default function OptimizedGameScreen() {
   
   // Fix gameState selector to match your actual game slice structure
   const { 
-    currentPromptData,
+    currentPrompt,
     status: gameStatus,
-    gameId 
+    currentGameId 
   } = useSelector((state: RootState) => state.game);
   
   // Navigation
@@ -126,8 +126,8 @@ export default function OptimizedGameScreen() {
     // Measure this task
     measureTask('game_setup', async () => {
       // Use correct game state structure
-      if (currentPromptData?.promptText) {
-        setCurrentPrompt(currentPromptData.promptText);
+      if (currentPrompt?.text) {
+        setLocalPrompt(currentPrompt.text);
         
         // Animate prompt in
         if (!shouldReduceAnimations) {
@@ -142,7 +142,7 @@ export default function OptimizedGameScreen() {
       isFirstRender.current = false;
       measureRender('OptimizedGameScreen', renderStartTime);
     }
-  }, [currentPromptData?.promptText, shouldReduceAnimations, promptOpacity, cardScale]);
+  }, [currentPrompt?.text, shouldReduceAnimations, promptOpacity, cardScale]);
   
   // Handle image generation
   const handleGenerateImage = async () => {
@@ -151,7 +151,7 @@ export default function OptimizedGameScreen() {
       return;
     }
     
-    if (!user?.uid) {
+    if (!user?.id) {
       Alert.alert('Error', 'Please sign in first.');
       return;
     }
@@ -166,7 +166,7 @@ export default function OptimizedGameScreen() {
       const result = await measureTask('ai_image_generation', () => 
         generateOptimizedAIImage(
           userInput,
-          user.uid!,
+          user.id!,
           {
             prioritizeSpeed: shouldReduceAnimations,
             forceHighQuality: false,
@@ -187,16 +187,16 @@ export default function OptimizedGameScreen() {
         }
         
         // Submit to game if we have the required data
-        if (gameId && currentPromptData?.promptId) {
+        if (currentGameId && currentPrompt?.id) {
           try {
-            await submitImageToGame(gameId, currentPromptData.promptId, result.imageUrl);
+            await submitImageToGame(currentGameId, currentPrompt.id, result.imageUrl);
             Alert.alert('Success!', 'Your image has been submitted to the game!');
           } catch (submitError) {
             console.error('Failed to submit image to game:', submitError);
             Alert.alert('Warning', 'Image generated but failed to submit to game. You can try again.');
           }
         } else {
-          console.log('Missing game data for submission:', { gameId, promptId: currentPromptData?.promptId });
+          console.log('Missing game data for submission:', { gameId: currentGameId, promptId: currentPrompt?.id });
           Alert.alert('Success!', 'Image generated! (Demo mode - no game submission)');
         }
       } else {
@@ -214,7 +214,7 @@ export default function OptimizedGameScreen() {
   
   // Memoize heavy computations
   const promptDisplay = useMemo(() => {
-    return currentPrompt || 'Waiting for prompt...';
+    return currentPrompt?.text || 'Waiting for prompt...';
   }, [currentPrompt]);
   
   // Animated styles
@@ -296,9 +296,9 @@ export default function OptimizedGameScreen() {
           <Text style={styles.statusText}>
             Game Status: {gameStatus || 'Unknown'}
           </Text>
-          {currentPromptData?.promptId && (
+          {currentPrompt?.id && (
             <Text style={styles.promptIdText}>
-              Prompt ID: {currentPromptData.promptId}
+              Prompt ID: {currentPrompt.id}
             </Text>
           )}
         </View>
