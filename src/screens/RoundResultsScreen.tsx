@@ -31,11 +31,8 @@ export default function RoundResultsScreen() {
 
   const handleNextRound = () => {
     dispatch(nextRound());
-    if (currentRound < totalRounds) {
-      navigation.navigate('GamePlay');
-    } else {
-      navigation.navigate('FinalResults');
-    }
+    // Navigation will be handled automatically by GameNavigator based on Redux state
+    console.log('🔄 Next round or final results - GameNavigator will handle navigation');
   };
 
   const renderSubmission = ({ item, index }: any) => (

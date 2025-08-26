@@ -14,7 +14,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { RootState } from '../store';
-import { nextVotingPair, updateScores } from '../store/slices/gameSlice';
+import { nextVotingPair, submitVote } from '../store/slices/gameSlice';
 
 type VotingNavigationProp = StackNavigationProp<RootStackParamList, 'Voting'>;
 
@@ -40,6 +40,15 @@ export default function VotingScreen() {
     setVotedFor(null);
     setTimer(15);
     
+    // If there's only one submission in this pair, auto-advance
+    if (currentPair && currentPair.pair.length === 1) {
+      console.log('🎯 Single submission pair, auto-advancing...');
+      setTimeout(() => {
+        handleNextPair();
+      }, 2000); // Wait 2 seconds then advance
+      return;
+    }
+    
     // Countdown timer
     const interval = setInterval(() => {
       setTimer((prev) => {
@@ -52,7 +61,7 @@ export default function VotingScreen() {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [currentVotingIndex]);
+  }, [currentVotingIndex, currentPair]);
 
   const handleVote = (playerId: string) => {
     if (hasVoted) return;
@@ -60,7 +69,10 @@ export default function VotingScreen() {
     setHasVoted(true);
     setVotedFor(playerId);
     
-    // In production, send vote to server
+    // Submit the vote to Redux
+    dispatch(submitVote({ submissionId: playerId, voterId: user?.id || 'unknown' }));
+    
+    // Wait a moment then move to next pair
     setTimeout(() => {
       handleNextPair();
     }, 1500);
@@ -70,8 +82,9 @@ export default function VotingScreen() {
     if (currentVotingIndex < votingPairs.length - 1) {
       dispatch(nextVotingPair());
     } else {
-      // Move to round results
-      navigation.navigate('RoundResults');
+      // Move to round results - let Redux state drive navigation
+      console.log('🎯 Voting complete, moving to round results');
+      // The useGameFlow hook will automatically handle the transition
     }
   };
 
@@ -99,7 +112,11 @@ export default function VotingScreen() {
       </View>
 
       <View style={styles.votingContainer}>
-        <Text style={styles.instructionText}>Tap the funniest image!</Text>
+        <Text style={styles.instructionText}>
+          {currentPair.pair.length === 1 
+            ? 'Only one submission - auto-advancing...' 
+            : 'Tap the funniest image!'}
+        </Text>
         
         <View style={styles.imagesContainer}>
           {currentPair.pair.map((submission, index) => (
@@ -111,7 +128,7 @@ export default function VotingScreen() {
                 hasVoted && votedFor !== submission.playerId && styles.notVotedOption,
               ]}
               onPress={() => handleVote(submission.playerId)}
-              disabled={hasVoted}
+              disabled={hasVoted || currentPair.pair.length === 1}
             >
               <Image source={{ uri: submission.imageUrl }} style={styles.image} />
               <View style={styles.responseContainer}>
@@ -122,6 +139,11 @@ export default function VotingScreen() {
               {hasVoted && votedFor === submission.playerId && (
                 <View style={styles.votedBadge}>
                   <Text style={styles.votedText}>YOUR VOTE</Text>
+                </View>
+              )}
+              {currentPair.pair.length === 1 && (
+                <View style={styles.singleSubmissionBadge}>
+                  <Text style={styles.singleSubmissionText}>AUTO-ADVANCING</Text>
                 </View>
               )}
             </TouchableOpacity>
@@ -240,6 +262,20 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   votedText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#FFF',
+  },
+  singleSubmissionBadge: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    backgroundColor: '#FF9800',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+  },
+  singleSubmissionText: {
     fontSize: 12,
     fontWeight: 'bold',
     color: '#FFF',

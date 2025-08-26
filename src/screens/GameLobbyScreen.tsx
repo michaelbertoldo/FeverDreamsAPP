@@ -58,7 +58,8 @@ export default function GameLobbyScreen() {
 
   const handleStartGame = () => {
     dispatch(startGame());
-    navigation.navigate('GamePlay');
+    // Navigation will be handled automatically by GameNavigator based on Redux state
+    console.log('🚀 Game started, GameNavigator will show GamePlay screen');
   };
 
   const renderPlayer = ({ item }: { item: Player }) => (

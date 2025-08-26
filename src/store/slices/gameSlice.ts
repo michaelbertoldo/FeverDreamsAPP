@@ -54,28 +54,28 @@ const initialState: GameState = {
   isHost: false,
 };
 
-// Quiplash-style prompts organized by category
+// AI Image Generation prompts organized by category
 export const PROMPTS: Prompt[] = [
   // Round 1 - Easy/Silly
-  { id: '1', text: 'The worst superhero power would be turning into a {blank}', category: 'silly' },
-  { id: '2', text: 'A terrible name for a restaurant would be {blank}', category: 'silly' },
-  { id: '3', text: 'The most useless smartphone app would be {blank}', category: 'silly' },
-  { id: '4', text: 'The worst thing to say on a first date is {blank}', category: 'silly' },
-  { id: '5', text: 'A horrible theme for a birthday party would be {blank}', category: 'silly' },
+  { id: '1', text: 'You as a superhero with the worst superpower: {blank}', category: 'silly' },
+  { id: '2', text: 'You as a terrible restaurant owner named {blank}', category: 'silly' },
+  { id: '3', text: 'You as the developer of the most useless app: {blank}', category: 'silly' },
+  { id: '4', text: 'You on the worst first date saying {blank}', category: 'silly' },
+  { id: '5', text: 'You at the most horrible birthday party theme: {blank}', category: 'silly' },
   
   // Round 2 - Medium/Creative
-  { id: '6', text: 'If cats ruled the world, the first law would be {blank}', category: 'creative' },
-  { id: '7', text: 'The secret ingredient in grandma\'s cookies is actually {blank}', category: 'creative' },
-  { id: '8', text: 'Aliens refuse to visit Earth because of {blank}', category: 'creative' },
-  { id: '9', text: 'The real reason dinosaurs went extinct was {blank}', category: 'creative' },
-  { id: '10', text: 'In the future, people will pay millions for {blank}', category: 'creative' },
+  { id: '6', text: 'You as a cat ruler making the first law: {blank}', category: 'creative' },
+  { id: '7', text: 'You as grandma with the secret cookie ingredient: {blank}', category: 'creative' },
+  { id: '8', text: 'You as an alien refusing to visit Earth because of {blank}', category: 'creative' },
+  { id: '9', text: 'You as the real reason dinosaurs went extinct: {blank}', category: 'creative' },
+  { id: '10', text: 'You in the future selling {blank} for millions', category: 'creative' },
   
   // Round 3 - Hard/Absurd
-  { id: '11', text: 'The Pope\'s secret hobby is {blank}', category: 'absurd' },
-  { id: '12', text: 'The WiFi password in hell is {blank}', category: 'absurd' },
-  { id: '13', text: 'God\'s biggest regret when creating humans was {blank}', category: 'absurd' },
-  { id: '14', text: 'The title of Shakespeare\'s lost play was {blank}', category: 'absurd' },
-  { id: '15', text: 'The last thing you want to hear your surgeon say is {blank}', category: 'absurd' },
+  { id: '11', text: 'You as the Pope doing your secret hobby: {blank}', category: 'absurd' },
+  { id: '12', text: 'You in hell setting the WiFi password: {blank}', category: 'absurd' },
+  { id: '13', text: 'You as God regretting when you created humans: {blank}', category: 'absurd' },
+  { id: '14', text: 'You as Shakespeare writing the lost play: {blank}', category: 'absurd' },
+  { id: '15', text: 'You as a surgeon saying the last thing you want to hear: {blank}', category: 'absurd' },
 ];
 
 const gameSlice = createSlice({
@@ -127,13 +127,40 @@ const gameSlice = createSlice({
       state.status = 'voting';
       state.votingPairs = action.payload;
       state.currentVotingIndex = 0;
+      // Reset votes for new voting round
+      state.submissions = state.submissions.map(sub => ({ ...sub, votes: 0 }));
+    },
+    
+    submitVote: (state, action: PayloadAction<{ submissionId: string; voterId: string }>) => {
+      const submission = state.submissions.find(sub => sub.playerId === action.payload.submissionId);
+      if (submission) {
+        submission.votes = (submission.votes || 0) + 1;
+        console.log(`🗳️ Vote added for ${submission.playerName}, total votes: ${submission.votes}`);
+      }
     },
     
     nextVotingPair: (state) => {
       if (state.currentVotingIndex < state.votingPairs.length - 1) {
         state.currentVotingIndex += 1;
       } else {
+        // Voting complete - calculate scores and move to round results
+        console.log('🎯 Voting complete, calculating scores...');
+        
+        // Calculate round scores based on votes
+        const scores: Record<string, number> = {};
+        state.submissions.forEach(submission => {
+          scores[submission.playerId] = (scores[submission.playerId] || 0) + (submission.votes || 0);
+        });
+        
+        // Update player scores
+        state.players = state.players.map(player => ({
+          ...player,
+          score: (player.score || 0) + (scores[player.id] || 0),
+        }));
+        
+        state.roundScores = scores;
         state.status = 'roundResults';
+        console.log('🏆 Round results ready, scores:', scores);
       }
     },
     
@@ -192,6 +219,7 @@ export const {
   setCurrentPrompt,
   submitResponse,
   startVoting,
+  submitVote,
   nextVotingPair,
   updateScores,
   nextRound,

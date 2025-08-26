@@ -73,6 +73,28 @@ function MainTabs() {
   );
 }
 
+// Game Navigator - conditionally shows the correct game screen
+function GameNavigator() {
+  const { status } = useSelector((state: RootState) => state.game);
+  
+  console.log('🎮 GameNavigator rendering with status:', status);
+  
+  switch (status) {
+    case 'lobby':
+      return <GameLobbyScreen />;
+    case 'playing':
+      return <GamePlayScreen />;
+    case 'voting':
+      return <VotingScreen />;
+    case 'roundResults':
+      return <RoundResultsScreen />;
+    case 'finalResults':
+      return <FinalResultsScreen />;
+    default:
+      return <GameLobbyScreen />;
+  }
+}
+
 // Main App Navigator
 export default function AppNavigator() {
   const { user, selfieUploaded } = useSelector((state: RootState) => state.auth);
@@ -95,23 +117,13 @@ export default function AppNavigator() {
         // Selfie upload flow
         <Stack.Screen name="Selfie" component={SelfieScreen} />
       ) : currentGameId ? (
-        // In-game flow
-        <>
-          <Stack.Screen name="GameLobby" component={GameLobbyScreen} />
-          <Stack.Screen name="GamePlay" component={GamePlayScreen} />
-          <Stack.Screen name="Voting" component={VotingScreen} />
-          <Stack.Screen name="RoundResults" component={RoundResultsScreen} />
-          <Stack.Screen name="FinalResults" component={FinalResultsScreen} />
-        </>
+        // In-game flow - use GameNavigator to show correct screen
+        <Stack.Screen name="Game" component={GameNavigator} />
       ) : (
         // Main app flow
         <>
           <Stack.Screen name="MainTabs" component={MainTabs} />
           <Stack.Screen name="GameLobby" component={GameLobbyScreen} />
-          <Stack.Screen name="GamePlay" component={GamePlayScreen} />
-          <Stack.Screen name="Voting" component={VotingScreen} />
-          <Stack.Screen name="RoundResults" component={RoundResultsScreen} />
-          <Stack.Screen name="FinalResults" component={FinalResultsScreen} />
         </>
       )}
     </Stack.Navigator>

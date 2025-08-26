@@ -64,10 +64,10 @@ export default function GamePlayScreen() {
     if (players.length > 0 && user && currentPrompt && !isGenerating) {
       const timer = setTimeout(() => {
         const mockResponses = [
-          'Being able to turn into a potato',
-          'Making everyone sneeze when you laugh',
-          'Summoning bad weather on sunny days',
-          'Making all food taste like broccoli'
+          'turning into a potato whenever you sneeze',
+          'making everyone around you hiccup uncontrollably',
+          'summoning rain clouds that only rain on you',
+          'making all food taste like expired yogurt'
         ];
         
         players.forEach((player, index) => {
@@ -117,8 +117,12 @@ export default function GamePlayScreen() {
     try {
       setIsGenerating(true);
       
-      // Generate AI image
-      const imageUrl = await generateAIImage(userResponse, user?.selfieUrl || '');
+      // Generate AI image with the full prompt template
+      const imageUrl = await generateAIImage(
+        userResponse, 
+        user?.selfieUrl || '',
+        currentPrompt?.text
+      );
       
       // Submit response
       dispatch(submitResponse({
@@ -179,12 +183,12 @@ export default function GamePlayScreen() {
         )}
 
         <View style={styles.promptContainer}>
-          <Text style={styles.promptLabel}>YOUR PROMPT</Text>
+          <Text style={styles.promptLabel}>🎨 IMAGE PROMPT</Text>
           <Text style={styles.promptText}>{currentPrompt.text}</Text>
         </View>
 
         <View style={styles.responseContainer}>
-          <Text style={styles.responseLabel}>How would you complete this prompt?</Text>
+          <Text style={styles.responseLabel}>Describe the image you want AI to create:</Text>
           <TextInput
             style={styles.responseInput}
             placeholder="Enter your creative response..."
@@ -218,7 +222,8 @@ export default function GamePlayScreen() {
 
         <View style={styles.infoContainer}>
           <Text style={styles.infoText}>
-            💡 Be creative! Your response will be used to generate a funny AI image with your selfie.
+            💡 Be creative! Describe the funny image you want AI to create. 
+            Your selfie will be incorporated into the scene!
           </Text>
         </View>
         
