@@ -35,7 +35,9 @@
           "cameraPermission": "The app needs access to your camera to capture selfies for AI image generation."
         }
       ],
-      "expo-apple-authentication"
+      "expo-apple-authentication",
+      "expo-secure-store",
+      "expo-font"
     ],
     "android": {
       "permissions": [

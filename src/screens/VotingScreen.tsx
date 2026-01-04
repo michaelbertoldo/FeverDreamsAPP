@@ -9,19 +9,13 @@ import {
   Image,
   Dimensions,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
 import { useDispatch, useSelector } from 'react-redux';
-import { StackNavigationProp } from '@react-navigation/stack';
-import { RootStackParamList } from '../navigation/AppNavigator';
 import { RootState } from '../store';
 import { nextVotingPair, submitVote } from '../store/slices/gameSlice';
-
-type VotingNavigationProp = StackNavigationProp<RootStackParamList, 'Voting'>;
 
 const { width: screenWidth } = Dimensions.get('window');
 
 export default function VotingScreen() {
-  const navigation = useNavigation<VotingNavigationProp>();
   const dispatch = useDispatch();
   const { votingPairs, currentVotingIndex, currentPrompt, currentRound } = useSelector(
     (state: RootState) => state.game
@@ -79,27 +73,33 @@ export default function VotingScreen() {
   };
 
   const handleNextPair = () => {
+    console.log('🔄 handleNextPair called:', { currentVotingIndex, totalPairs: votingPairs.length });
+    
     if (currentVotingIndex < votingPairs.length - 1) {
+      console.log('⏭️ Moving to next voting pair');
       dispatch(nextVotingPair());
     } else {
-      // Move to round results - let Redux state drive navigation
-      console.log('🎯 Voting complete, moving to round results');
-      // The useGameFlow hook will automatically handle the transition
+      // Move to round results - dispatch nextVotingPair to trigger round results
+      console.log('🎯 Voting complete, dispatching nextVotingPair to trigger round results');
+      dispatch(nextVotingPair());
     }
   };
 
   if (!currentPair) {
     return (
-      <SafeAreaView style={styles.container}>
-        <Text style={styles.loadingText}>Loading voting...</Text>
-      </SafeAreaView>
+      <View style={styles.container}>
+        <SafeAreaView style={styles.safeArea}>
+          <Text style={styles.loadingText}>Loading voting...</Text>
+        </SafeAreaView>
+      </View>
     );
   }
 
   const promptText = currentPrompt?.text.replace('{blank}', '_____') || '';
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
+      <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
         <Text style={styles.roundText}>Round {currentRound} - Voting</Text>
         <View style={styles.timerContainer}>
@@ -163,8 +163,22 @@ export default function VotingScreen() {
             {currentVotingIndex + 1} of {votingPairs.length}
           </Text>
         </View>
+        
+        {/* Debug: Skip Voting Button (only in development) */}
+        {__DEV__ && (
+          <TouchableOpacity
+            style={styles.skipButton}
+            onPress={() => {
+              console.log('⚠️ Manual skip voting triggered');
+              dispatch(nextVotingPair());
+            }}
+          >
+            <Text style={styles.skipButtonText}>Skip Voting (Debug)</Text>
+          </TouchableOpacity>
+        )}
       </View>
-    </SafeAreaView>
+      </SafeAreaView>
+    </View>
   );
 }
 
@@ -172,6 +186,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000',
+  },
+  safeArea: {
+    flex: 1,
+    paddingTop: 20,
+    paddingHorizontal: 20,
   },
   header: {
     flexDirection: 'row',
@@ -305,5 +324,18 @@ const styles = StyleSheet.create({
     color: '#888',
     textAlign: 'center',
     marginTop: 50,
+  },
+  skipButton: {
+    backgroundColor: '#FF9800',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    marginTop: 20,
+    alignSelf: 'center',
+  },
+  skipButtonText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: 'bold',
   },
 });

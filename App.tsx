@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { StatusBar, LogBox } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { Provider } from 'react-redux';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { store } from './src/store';
 import AppNavigator from './src/navigation/AppNavigator';
 import { initializeSocket } from './src/services/socketService';
@@ -16,11 +17,13 @@ export default function App() {
   }, []);
 
   return (
-    <Provider store={store}>
-      <StatusBar barStyle="light-content" backgroundColor="#000" />
-      <NavigationContainer>
-        <AppNavigator />
-      </NavigationContainer>
-    </Provider>
+    <SafeAreaProvider>
+      <Provider store={store}>
+        <StatusBar barStyle="light-content" backgroundColor="#000" />
+        <NavigationContainer>
+          <AppNavigator />
+        </NavigationContainer>
+      </Provider>
+    </SafeAreaProvider>
   );
 }

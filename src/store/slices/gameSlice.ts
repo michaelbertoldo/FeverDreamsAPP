@@ -36,6 +36,7 @@ export interface GameState {
   roundScores: Record<string, number>;
   timeRemaining: number;
   isHost: boolean;
+  testMode: 'disabled' | 'solo' | 'multiplayer';
 }
 
 const initialState: GameState = {
@@ -52,6 +53,7 @@ const initialState: GameState = {
   roundScores: {},
   timeRemaining: 0,
   isHost: false,
+  testMode: 'disabled',
 };
 
 // AI Image Generation prompts organized by category
@@ -82,14 +84,16 @@ const gameSlice = createSlice({
   name: 'game',
   initialState,
   reducers: {
-    createGame: (state, action: PayloadAction<{ gameId: string; gameCode: string }>) => {
-      state.currentGameId = action.payload.gameId;
+    createGame: (state, action: PayloadAction<{ gameId?: string; gameCode: string; testMode?: 'disabled' | 'solo' | 'multiplayer' }>) => {
+      state.currentGameId = action.payload.gameId || `game_${Date.now()}`;
       state.gameCode = action.payload.gameCode;
       state.status = 'lobby';
       state.isHost = true;
       state.currentRound = 1;
       state.players = [];
       state.submissions = [];
+      state.testMode = action.payload.testMode || 'disabled';
+      console.log('🎮 Game created with test mode:', state.testMode);
     },
     
     joinGame: (state, action: PayloadAction<{ gameId: string; gameCode: string }>) => {
@@ -208,6 +212,11 @@ const gameSlice = createSlice({
     setTimeRemaining: (state, action: PayloadAction<number>) => {
       state.timeRemaining = action.payload;
     },
+    
+    setTestMode: (state, action: PayloadAction<'disabled' | 'solo' | 'multiplayer'>) => {
+      state.testMode = action.payload;
+      console.log('🧪 Test mode set to:', action.payload);
+    },
   },
 });
 
@@ -225,6 +234,7 @@ export const {
   nextRound,
   endGame,
   setTimeRemaining,
+  setTestMode,
 } = gameSlice.actions;
 
 export default gameSlice.reducer;

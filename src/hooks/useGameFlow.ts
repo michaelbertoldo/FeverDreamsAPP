@@ -108,7 +108,7 @@ export const useGameFlow = () => {
         console.log('⚠️ Safety timeout: Voting taking too long, forcing round results');
         // Force move to round results if voting gets stuck
         dispatch({ type: 'game/nextVotingPair' });
-      }, 30000); // 30 second safety timeout
+      }, 10000); // 10 second safety timeout for faster testing
       
       return () => clearTimeout(safetyTimer);
     }

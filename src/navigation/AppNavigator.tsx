@@ -17,6 +17,7 @@ import GamePlayScreen from '../screens/GamePlayScreen';
 import VotingScreen from '../screens/VotingScreen';
 import RoundResultsScreen from '../screens/RoundResultsScreen';
 import FinalResultsScreen from '../screens/FinalResultsScreen';
+import { AIDebugScreen } from '../components/AIDebugScreen';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -124,6 +125,7 @@ export default function AppNavigator() {
         <>
           <Stack.Screen name="MainTabs" component={MainTabs} />
           <Stack.Screen name="GameLobby" component={GameLobbyScreen} />
+          <Stack.Screen name="AIDebug" component={AIDebugScreen} />
         </>
       )}
     </Stack.Navigator>

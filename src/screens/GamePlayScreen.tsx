@@ -11,14 +11,18 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { ScrollView } from 'react-native-gesture-handler';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '../store';
 import { submitResponse, updatePlayers, startGame } from '../store/slices/gameSlice';
 import { generateAIImage } from '../services/aiService';
 import { Ionicons } from '@expo/vector-icons';
 import { useGameFlow } from '../hooks/useGameFlow';
+import { SafeContainer, SafeHeader } from '../components/SafeContainer';
 
 export default function GamePlayScreen() {
+  const insets = useSafeAreaInsets();
   const [userResponse, setUserResponse] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [timeLeft, setTimeLeft] = useState(60);
@@ -29,6 +33,7 @@ export default function GamePlayScreen() {
   const user = useSelector((state: RootState) => state.auth.user);
   const players = useSelector((state: RootState) => state.game.players);
   const submissions = useSelector((state: RootState) => state.game.submissions);
+  const testMode = useSelector((state: RootState) => state.game.testMode);
   
   // Use the game flow hook
   const { shouldShowVoting, shouldShowRoundResults, shouldShowFinalResults, currentStatus } = useGameFlow();
@@ -38,17 +43,18 @@ export default function GamePlayScreen() {
     console.log('🔄 Game status changed to:', currentStatus);
   }, [currentStatus]);
   
-  // Add mock players for testing if none exist
+  // Add mock players for testing based on test mode
   useEffect(() => {
     console.log('🎮 GamePlayScreen mounted, current state:', { 
       playersCount: players.length, 
       user: !!user, 
       currentStatus: currentStatus,
-      currentPrompt: !!currentPrompt 
+      currentPrompt: !!currentPrompt,
+      testMode: testMode
     });
     
-    if (players.length === 0 && user) {
-      console.log('🤖 Adding mock players for testing');
+    if (players.length === 0 && user && testMode === 'solo') {
+      console.log('🤖 Adding 3 AI players for solo test mode');
       const mockPlayers = [
         { id: user.id, name: user.displayName, score: 0, isHost: true },
         { id: 'mock1', name: 'AI Player 1', score: 0, isHost: false },
@@ -56,12 +62,16 @@ export default function GamePlayScreen() {
         { id: 'mock3', name: 'AI Player 3', score: 0, isHost: false },
       ];
       dispatch(updatePlayers(mockPlayers));
+    } else if (players.length === 0 && user && testMode === 'multiplayer') {
+      console.log('👥 Multiplayer test mode - no AI players added');
+      const userPlayer = { id: user.id, name: user.displayName, score: 0, isHost: true };
+      dispatch(updatePlayers([userPlayer]));
     }
-  }, [players.length, user, dispatch, currentStatus, currentPrompt]);
+  }, [players.length, user, dispatch, currentStatus, currentPrompt, testMode]);
   
-  // Auto-submit responses for mock players after a delay
+  // Auto-submit responses for mock players in solo test mode
   useEffect(() => {
-    if (players.length > 0 && user && currentPrompt && !isGenerating) {
+    if (testMode === 'solo' && players.length > 0 && user && currentPrompt && !isGenerating) {
       const timer = setTimeout(() => {
         const mockResponses = [
           'turning into a potato whenever you sneeze',
@@ -72,6 +82,7 @@ export default function GamePlayScreen() {
         
         players.forEach((player, index) => {
           if (player.id !== user.id) {
+            console.log(`🤖 AI player ${player.name} submitting response: ${mockResponses[index]}`);
             dispatch(submitResponse({
               promptResponse: mockResponses[index] || 'Something funny',
               imageUrl: `https://picsum.photos/400/400?random=${index}`,
@@ -85,7 +96,7 @@ export default function GamePlayScreen() {
       
       return () => clearTimeout(timer);
     }
-  }, [players.length, user, currentPrompt, isGenerating, dispatch]);
+  }, [testMode, players.length, user, currentPrompt, isGenerating, dispatch]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -148,23 +159,38 @@ export default function GamePlayScreen() {
 
   if (!currentPrompt) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeContainer backgroundColor="#000">
         <View style={styles.centerContent}>
           <ActivityIndicator size="large" color="#FF6B6B" />
           <Text style={styles.loadingText}>Loading prompt...</Text>
         </View>
-      </SafeAreaView>
+      </SafeContainer>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeContainer backgroundColor="#000">
+      <SafeHeader 
+        title={`Round ${currentRound}`}
+        onBackPress={() => {/* Handle back navigation */}}
+        rightAction={{
+          icon: "timer-outline",
+          onPress: () => {}
+        }}
+      />
+      
       <KeyboardAvoidingView
         style={styles.keyboardContainer}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={insets.top + 56}
       >
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
         <View style={styles.header}>
-          <Text style={styles.roundText}>Round {currentRound}</Text>
           <Text style={styles.timerText}>⏰ {timeLeft}s</Text>
           <Text style={styles.statusText}>Status: {currentStatus}</Text>
         </View>
@@ -202,29 +228,31 @@ export default function GamePlayScreen() {
           <Text style={styles.charCount}>{userResponse.length}/200</Text>
         </View>
 
-        <TouchableOpacity
-          style={[
-            styles.submitButton,
-            (!userResponse.trim() || isGenerating) && styles.submitButtonDisabled,
-          ]}
-          onPress={handleSubmit}
-          disabled={!userResponse.trim() || isGenerating}
-        >
-          {isGenerating ? (
-            <View style={styles.submitContent}>
-              <ActivityIndicator size="small" color="white" />
-              <Text style={styles.submitText}>Generating AI Image...</Text>
-            </View>
-          ) : (
-            <Text style={styles.submitText}>🎨 Generate AI Image</Text>
-          )}
-        </TouchableOpacity>
+        <View style={styles.bottomSection}>
+          <TouchableOpacity
+            style={[
+              styles.submitButton,
+              (!userResponse.trim() || isGenerating) && styles.submitButtonDisabled,
+            ]}
+            onPress={handleSubmit}
+            disabled={!userResponse.trim() || isGenerating}
+          >
+            {isGenerating ? (
+              <View style={styles.submitContent}>
+                <ActivityIndicator size="small" color="white" />
+                <Text style={styles.submitText}>Generating AI Image...</Text>
+              </View>
+            ) : (
+              <Text style={styles.submitText}>🎨 Generate AI Image</Text>
+            )}
+          </TouchableOpacity>
 
-        <View style={styles.infoContainer}>
-          <Text style={styles.infoText}>
-            💡 Be creative! Describe the funny image you want AI to create. 
-            Your selfie will be incorporated into the scene!
-          </Text>
+          <View style={styles.infoContainer}>
+            <Text style={styles.infoText}>
+              💡 Be creative! Describe the funny image you want AI to create. 
+              Your selfie will be incorporated into the scene!
+            </Text>
+          </View>
         </View>
         
         {/* Debug Info */}
@@ -233,10 +261,13 @@ export default function GamePlayScreen() {
             <Text style={styles.debugText}>Players: {players.length}</Text>
             <Text style={styles.debugText}>Submissions: {submissions?.length || 0}</Text>
             <Text style={styles.debugText}>Status: {currentStatus}</Text>
+            <Text style={styles.debugText}>Test Mode: {testMode}</Text>
           </View>
         )}
+        <View style={{ height: insets.bottom + 24 }} />
+        </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </SafeContainer>
   );
 }
 
@@ -248,6 +279,13 @@ const styles = StyleSheet.create({
   keyboardContainer: {
     flex: 1,
     padding: 20,
+    paddingTop: 0,
+  },
+  scroll: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 24,
   },
   centerContent: {
     flex: 1,
@@ -263,7 +301,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 30,
+    marginBottom: 20,
+    paddingHorizontal: 16,
   },
   roundText: {
     color: '#FF6B6B',
@@ -303,7 +342,6 @@ const styles = StyleSheet.create({
     lineHeight: 28,
   },
   responseContainer: {
-    flex: 1,
     marginBottom: 20,
   },
   responseLabel: {
@@ -386,5 +424,9 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  bottomSection: {
+    marginTop: 20,
+    gap: 15,
   },
 });
